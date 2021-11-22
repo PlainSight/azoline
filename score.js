@@ -1,7 +1,5 @@
 
 
-// place piece
-
 var colours = [
 	['blue', 'orange', 'red', 'black', 'teal'],
 	['teal', 'blue', 'orange', 'red', 'black'],
@@ -68,3 +66,38 @@ function scorePlacement(x, y) {
 	return score;
 }
 
+function calculateBonuses() {
+	var bonus = 0;
+	
+	// rows +2
+outer:	for(var y = 0; y < 5; y++) {
+		for(var x = 0; x < 5; x++) {
+			if(!grid[y][x]) {
+				continue outer;
+			}
+		}
+		bonus += 2;
+	}
+	
+	// columns +7
+outer:	for(var x = 0; x < 5; x++) {
+		for(var y = 0; y < 5; y++) {
+			if(!grid[y][x]) {
+				continue outer;
+			}
+		}
+		bonus += 7;
+	}
+	
+	// sets = +10
+	outer:	for(var x = 0; x < 5; x++) {
+		for(var y = 0; y < 5; y++) {
+			if(!grid[y][(x+y)%5]) {
+				continue outer;
+			}
+		}
+		bonus += 10;
+	}
+	
+	return bonus;
+}
