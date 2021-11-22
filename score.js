@@ -102,8 +102,28 @@ outer:	for(var x = 0; x < 5; x++) {
 	return bonus;
 }
 
+function beziern(arr, p) {
+	var points = arr;
+	
+	function lerp(xy0, xy1, p) {
+		return {
+			x: (xy0.x*(1-p))+(xy1.x*p),
+			y: (xy0.y*(1-p))+(xy1.y*p)
+		}
+	}
 
-function bezier(x0, y0, x1, y1) {
+	while(points.length > 1) {
+		var newPoints = [];
+		for(var i = 0; i < points.length-1; i++) {
+			newPoints.push(lerp(points[i], points[i+1], p));
+		}
+		points = newPoints;
+	}
+	
+	return points[0];
+}
+
+function bezier(x0, y0, x1, y1, p) {
 	// project a point no more than len(x0x1, y0y1) from the middle of vec(x0x1, y0y1) at 90 degrees.
 	
 	var xm = (x0 + x1) / 2;
@@ -116,37 +136,16 @@ function bezier(x0, y0, x1, y1) {
 	
 	var mul = (swing*2*Math.random()) - swing;
 	
-	var x = xm + (mul * dx);
-	var y = ym + (mul * dy);
+	var midx = xm + (mul * dx);
+	var midy = ym + (mul * dy);
 	
-	var v0x0 = x0;
-	var v0x1 = x;
-	var v0y0 = y0;
-	var v0y1 = y;
+	// select a random point near the destination
 	
-	var v1x0 = x;
-	var v1x1 = x1;
-	var v1y0 = y;
-	var v1y1 = y1;
+	var dist = 30;
+	var angle = Math.random() * 2 * Math.PI;
 	
-	function lerp(x0, y0, x1, y1, p) {
-		return {
-			x: (x0*p)+(x1*(1-p)),
-			y: (y0*p)+(y1*(1-p))
-		}
-	}
+	var nearDestx = x1 + (Math.sin(angle) * dist);
+	var nearDesty = y1 + (Math.cos(angle) * dist);
 	
-	var step = 0.1;
-	
-	var steps = [];
-	
-	for (var p = 0; p <= 1; p += step) {
-		var v0 = lerp(v0x0, v0y0, v0x1, v0y1, p);
-		var v1 = lerp(v1x0, v1y0, v1x1, v1y1, p);
-		var xy = lerp(v0.x, v0.y, v1.x, v1.y, p);
-		steps.push(xy);
-	}
-	
-	return steps;
-	console.log(steps);
+	return [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1].map(p => beziern([{ x: x0, y: y0 }, { x: midx, y: midy }, { x: nearDestx, y: nearDesty }, { x: x1, y: y1 }], p)).map(v => v.x +' ' + v.y).reduce((a, c) => a+'\n'+c);
 }
