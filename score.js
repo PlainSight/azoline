@@ -1,4 +1,4 @@
-
+// use bezier curves to move tiles
 
 var colours = [
 	['blue', 'orange', 'red', 'black', 'teal'],
@@ -100,4 +100,25 @@ outer:	for(var x = 0; x < 5; x++) {
 	}
 	
 	return bonus;
+}
+
+
+function bezier(x0, y0, x1, y1) {
+	// project a point no more than len(x0x1, y0y1) from the middle of vec(x0x1, y0y1) at 90 degrees.
+	
+	var xm = (x0 + x1) / 2;
+	var ym = (y0 + y1) / 2;
+	
+	var dx = y1 - y0;
+	var dy = x0 - x1;
+	
+	var mul = Math.random() - 0.5;
+	
+	var x = xm + (mul * dx);
+	var y = ym + (mul * dy);
+	
+	return {
+		x: x,
+		y: y
+	};
 }
