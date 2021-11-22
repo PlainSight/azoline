@@ -112,13 +112,41 @@ function bezier(x0, y0, x1, y1) {
 	var dx = y1 - y0;
 	var dy = x0 - x1;
 	
-	var mul = Math.random() - 0.5;
+	var swing = 0.8;
+	
+	var mul = (swing*2*Math.random()) - swing;
 	
 	var x = xm + (mul * dx);
 	var y = ym + (mul * dy);
 	
-	return {
-		x: x,
-		y: y
-	};
+	var v0x0 = x0;
+	var v0x1 = x;
+	var v0y0 = y0;
+	var v0y1 = y;
+	
+	var v1x0 = x;
+	var v1x1 = x1;
+	var v1y0 = y;
+	var v1y1 = y1;
+	
+	function lerp(x0, y0, x1, y1, p) {
+		return {
+			x: (x0*p)+(x1*(1-p)),
+			y: (y0*p)+(y1*(1-p))
+		}
+	}
+	
+	var step = 0.1;
+	
+	var steps = [];
+	
+	for (var p = 0; p <= 1; p += step) {
+		var v0 = lerp(v0x0, v0y0, v0x1, v0y1, p);
+		var v1 = lerp(v1x0, v1y0, v1x1, v1y1, p);
+		var xy = lerp(v0.x, v0.y, v1.x, v1.y, p);
+		steps.push(xy);
+	}
+	
+	return steps;
+	console.log(steps);
 }
