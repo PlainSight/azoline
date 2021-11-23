@@ -3,7 +3,7 @@ let socket = new WebSocket("ws://localhost:7777");
 socket.onopen = function() {
     sendMessage({
         type: 'connection',
-        data: localStorage.getItem('webrts0.0.1faction')
+        data: localStorage.getItem('azoline0.1')
     });
 };
 
@@ -12,6 +12,7 @@ socket.onmessage = function(event) {
 };
 
 var chatlog = [];
+var lobbyName = '';
 
 socket.onclose = function(event) {
     if (event.wasClean) {
@@ -38,11 +39,17 @@ function processMessage(m) {
                 chatlog.push({ message: m, age: Date.now() });
             });
             break;
+        case 'cookie':
+            localStorage.setItem('azoline0.1', message.data.cookie);
+            break;
+        case 'lobby':
+            lobbyName = message.data.lobbyName;
+            break;
         case 'state':
-            
+            message.data;
             break;
         case 'action':
-            message.data
+            message.data;
             break;
     }
 }
@@ -146,8 +153,8 @@ function loadTexture(src, d) {
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,  gl.UNSIGNED_BYTE, image);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     });
 
     return { 
@@ -183,7 +190,7 @@ function drawScene(gl, programInfo, calls) {
         
         gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
         var positions = [];
-        function calculatePosition(x, y, w, h, z) {
+        function calculatePosition(x, y, w, h, z, angle) {
             y = canvas.height - y;
             var dx = x + w;
             var dy = y - h;
@@ -198,7 +205,7 @@ function drawScene(gl, programInfo, calls) {
             );
         }
         drawCalls.forEach(dc => {
-            calculatePosition(dc[4], dc[5], dc[6], dc[7], dc[8]);
+            calculatePosition(dc[4], dc[5], dc[6], dc[7], dc[8], dc[9]);
         });
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
         gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
@@ -253,10 +260,18 @@ function drawScene(gl, programInfo, calls) {
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
         var colors = [];
         drawCalls.forEach(dc => {
-            var color = ((dc[9] || 0) * 1298809) % 16777216;
-            var r = (color & 255) / 255;
-            var g = ((color >> 8) & 255) / 255;
-            var b = ((color >> 16) & 255) / 255;
+            var r = 0;
+            var g = 0;
+            var b = 0;
+            switch (dc[10]) {
+                case 'red':
+                    r = 1;
+                    break;
+                case 'green':
+                    g = 1;
+                    break;
+                default:
+            }
             colors.push(r, g, b);
             colors.push(r, g, b);
             colors.push(r, g, b);
@@ -275,7 +290,26 @@ function drawScene(gl, programInfo, calls) {
     }
 }
 
+function render() {
+    var calls = {};
 
+    function draw(sheet, sx, sy, sw, sh, dx, dy, dw, dh, angle, z, color) {
+        calls[sheet] = calls[sheet] || [];
+        calls[sheet].push([sx, sy, sw, sh, dx, dy, dw, dh, z, angle, color]);
+    }
+
+    function drawSprite(sheet, fx, fy, dx, dy, w, h, angle, z, color) {
+        var dim = graphics[sheet].dim
+        var sx = fx*dim;
+        var sy = fy*dim;
+        draw(sheet, sx, sy, dim, dim, dx, dy, w, h, angle, z, color);
+    }
+
+    drawSprite('tiles', 0, 0, 30, 30, 80, 80, 0.5, 5);
+
+    drawScene(gl, programInfo, calls);
+    window.requestAnimationFrame(render);
+}
 
 canvas.width = Math.floor(canvasDimensions.width);
 canvas.height = Math.floor(canvasDimensions.height);
@@ -289,7 +323,7 @@ window.addEventListener('resize', (e) => {
 var cursorX = 256;
 var cursorY = 256;
 
-var graphics = [{ n : 'tiles.png', d: 32 }, { n: 'cursors.png', d: 16 }, { n: 'font9.png', d: 9 }].reduce((a, c) => {
+var graphics = [{ n : 'tiles.png', d: 80 }, { n: 'cursors.png', d: 16 }, { n: 'font.png', d: 9 }].reduce((a, c) => {
     var name = c.n.split('.')[0];
     a[name] = loadTexture(c.n, c.d);
     return a;
