@@ -1,6 +1,6 @@
 // use bezier curves to move tiles
 
-var colours = [
+var COLOURS = [
 	['blue', 'orange', 'red', 'black', 'teal'],
 	['teal', 'blue', 'orange', 'red', 'black'],
 	['black', 'teal', 'blue', 'orange', 'red'],
@@ -8,7 +8,36 @@ var colours = [
 	['orange', 'red', 'black', 'teal', 'blue']
 ];
 
+var pattern = [
+	{ colour: '', count: 0, capacity: 1 },
+	{ colour: '', count: 0, capacity: 2 },
+	{ colour: '', count: 0, capacity: 3 },
+	{ colour: '', count: 0, capacity: 4 },
+	{ colour: '', count: 0, capacity: 5 }
+]
+
+var playerScore = 0;
+
+var grid = [
+	[null, null, null, null, null],
+	[null, null, null, null, null],
+	[null, null, null, null, null],
+	[null, null, null, null, null],
+	[null, null, null, null, null]
+];
+
+var floor = [];
+
 function validatePlacement(colour, y) {
+	if (pattern[y].count > 1) {
+		if(pattern[y].colour != colour) {
+			return false;
+		}
+	}
+	
+	if (pattern[y].count == pattern[y].capacity) {
+		return false;
+	
 	var x = colours[y].indexOf(colour);
 	if (grid[y][x]) {
 		return false;
@@ -16,13 +45,26 @@ function validatePlacement(colour, y) {
 	return true;
 }
 
-var grid = [
-[null, null, null, null, null],
-[null, null, null, null, null],
-[null, null, null, null, null],
-[null, null, null, null, null],
-[null, null, null, null, null]
-];
+function placeInPattern(colour, count, y) {
+	pattern[y].count += count;
+	var overflow = Math.max(0, pattern[y].count - pattern[y].capacity);
+	pattern[y].count -= overflow;
+	pattern[y].colour = colour;
+	
+	for(var i = 0; i < overflow; i++) {
+		floor.push({ colour: colour });
+	}
+}
+
+function build() {
+	for (var p = 0; p < pattern.length; p++) {
+		if (pattern[p].count == pattern[p].capacity) {
+			var index = grid[p].indexOf(pattern[p].colour);
+			grid[p][index] = pattern[p].colour;
+			playerScore += scorePlacement(index, p);
+		}
+	}
+}
 
 function scorePlacement(x, y) {
 	var ymin = 0;
