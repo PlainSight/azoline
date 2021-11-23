@@ -8,28 +8,55 @@ var COLOURS = [
 	['orange', 'red', 'black', 'teal', 'blue']
 ];
 
-var middle = [];
-var factories = [];
+function Game(players) {
+	this.players = players;
+	this.factories = [];
+	this.middle = [];
 
-var pattern = [
-	{ colour: '', count: 0, capacity: 1 },
-	{ colour: '', count: 0, capacity: 2 },
-	{ colour: '', count: 0, capacity: 3 },
-	{ colour: '', count: 0, capacity: 4 },
-	{ colour: '', count: 0, capacity: 5 }
-]
+	this.start = function() {
+		this.broadcast({
+			type: 'message',
+			data: 'The game is about to begin!'
+		});
+	}
 
-var playerScore = 0;
+	this.broadcast = function(message) {
+		this.player.forEach(p => {
+			p.send(message);
+		});
+	}
+}
 
-var grid = [
-	[null, null, null, null, null],
-	[null, null, null, null, null],
-	[null, null, null, null, null],
-	[null, null, null, null, null],
-	[null, null, null, null, null]
-];
+function Player(name, game, connection) {
+	this.name = name;
+	this.game = game;
+	this.connection = connection;
 
-var floor = [];
+	this.pattern = [
+		{ colour: '', count: 0, capacity: 1 },
+		{ colour: '', count: 0, capacity: 2 },
+		{ colour: '', count: 0, capacity: 3 },
+		{ colour: '', count: 0, capacity: 4 },
+		{ colour: '', count: 0, capacity: 5 }
+	];
+	this.grid = [
+		[null, null, null, null, null],
+		[null, null, null, null, null],
+		[null, null, null, null, null],
+		[null, null, null, null, null],
+		[null, null, null, null, null]
+	];
+	this.floor = [];
+	this.score = 0;
+
+	this.setConnection = function (con) {
+		this.connection = con;
+	};
+
+	this.send = function(message) {
+		this.connection.send(JSON.stringify(message))
+	}
+}
 
 function validatePlacement(colour, y) {
 	if (pattern[y].count > 1) {
@@ -41,7 +68,7 @@ function validatePlacement(colour, y) {
 	if (pattern[y].count == pattern[y].capacity) {
 		return false;
 	
-	var x = colours[y].indexOf(colour);
+	var x = COLOURS[y].indexOf(colour);
 	if (grid[y][x]) {
 		return false;
 	}
@@ -172,50 +199,7 @@ outer:	for(var x = 0; x < 5; x++) {
 	return bonus;
 }
 
-function beziern(arr, p) {
-	var points = arr;
-	
-	function lerp(xy0, xy1, p) {
-		return {
-			x: (xy0.x*(1-p))+(xy1.x*p),
-			y: (xy0.y*(1-p))+(xy1.y*p)
-		}
-	}
 
-	while(points.length > 1) {
-		var newPoints = [];
-		for(var i = 0; i < points.length-1; i++) {
-			newPoints.push(lerp(points[i], points[i+1], p));
-		}
-		points = newPoints;
-	}
-	
-	return points[0];
-}
-
-function bezier(x0, y0, x1, y1, p) {
-	// project a point no more than len(x0x1, y0y1) from the middle of vec(x0x1, y0y1) at 90 degrees.
-	
-	var xm = (x0 + x1) / 2;
-	var ym = (y0 + y1) / 2;
-	
-	var dx = y1 - y0;
-	var dy = x0 - x1;
-	
-	var swing = 0.8;
-	
-	var mul = (swing*2*Math.random()) - swing;
-	
-	var midx = xm + (mul * dx);
-	var midy = ym + (mul * dy);
-	
-	// select a random point near the destination
-	
-	var dist = 30;
-	var angle = Math.random() * 2 * Math.PI;
-	
-	var nearDestx = x1 + (Math.sin(angle) * dist);
-	var nearDesty = y1 + (Math.cos(angle) * dist);
-	
-	return [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1].map(p => beziern([{ x: x0, y: y0 }, { x: midx, y: midy }, { x: nearDestx, y: nearDesty }, { x: x1, y: y1 }], p)).map(v => v.x +' ' + v.y).reduce((a, c) => a+'\n'+c);
+module.exports = {
+    start
 }
