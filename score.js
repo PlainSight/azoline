@@ -8,6 +8,9 @@ var COLOURS = [
 	['orange', 'red', 'black', 'teal', 'blue']
 ];
 
+var middle = [];
+var factories = [];
+
 var pattern = [
 	{ colour: '', count: 0, capacity: 1 },
 	{ colour: '', count: 0, capacity: 2 },
@@ -46,14 +49,39 @@ function validatePlacement(colour, y) {
 }
 
 function placeInPattern(colour, count, y) {
-	pattern[y].count += count;
-	var overflow = Math.max(0, pattern[y].count - pattern[y].capacity);
-	pattern[y].count -= overflow;
-	pattern[y].colour = colour;
+	var overflow = count;
+	
+	if (y >= 0) {
+		pattern[y].count += count;
+		overflow = Math.max(0, pattern[y].count - pattern[y].capacity);
+		pattern[y].count -= overflow;
+		pattern[y].colour = colour;
+	}
 	
 	for(var i = 0; i < overflow; i++) {
 		floor.push({ colour: colour });
 	}
+}
+
+function pick(colour, zone, destination) {
+	// destination -1 means the floor
+	if (destination >= 0 && !validatePlacement, colour, destination) {
+		return;
+	}
+	
+	var picked = [];
+	if (zone == -1) {
+		// picking from the middle
+		picked = middle.filter(t => t.colour == colour);
+		middle = middle.filter(t => t.colour != colour);
+	} else {
+		picked = factories[zone].filter(t => t.colour == colour);
+		middle.push(...factories[zone].filter(t => t.colour != colour));
+		
+		factories[zone] = [];
+	}
+	
+	placeInPattern(colour, picked.length, destination);
 }
 
 function build() {
