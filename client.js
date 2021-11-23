@@ -90,7 +90,10 @@ var fsSource = `
 
     void main() {
         vec4 color = texture2D(uTexture, vTexcoord);
-        if (color.r < 0.01 && color.g > 0.99 && color.b > 0.99) {
+        if (color.r > 0.24 && color.r < 0.26 && color.g > 0.24 && color.g < 0.26 && color.b > 0.24 && color.b < 0.26) {
+            if (vRecolor.r == 0.0 && vRecolor.g == 0.0 && vRecolor.b == 0.0) {
+                discard;
+            }
             color.r = vRecolor.r;
             color.g = vRecolor.g;
             color.b = vRecolor.b;
@@ -141,7 +144,7 @@ var programInfo = {
     }
 };
 
-function loadTexture(src, d) {
+function loadTexture(src, d, noblur)  {
     var texture = gl.createTexture();
      
     // Asynchronously load an image
@@ -153,8 +156,8 @@ function loadTexture(src, d) {
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,  gl.UNSIGNED_BYTE, image);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, noblur ? gl.NEAREST : gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, noblur ? gl.NEAREST : gl.LINEAR);
     });
 
     return { 
@@ -305,7 +308,19 @@ function render() {
         draw(sheet, sx, sy, dim, dim, dx, dy, w, h, angle, z, color);
     }
 
-    drawSprite('tiles', 0, 0, 30, 30, 80, 80, 0.5, 5);
+    // function drawRect(dx, dy, w, h, angle, z, color) {
+    //     draw('', 0, 0, 1, 1, dx, dy, w, h, angle, z, color);
+    // }
+
+    drawSprite('tiles', 0, 0, 30, 30, 40, 40, Math.PI, 0.5);
+    drawSprite('highlight', 0, 0, 30, 30, 40, 40, Math.PI, 0.6, 'red');
+    drawSprite('tiles', 1, 0, 130, 30, 40, 40, Math.PI, 0.5);
+    drawSprite('highlight', 0, 0, 130, 30, 40, 40, Math.PI, 0.6, 'green');
+    drawSprite('tiles', 2, 0, 230, 30, 40, 40, Math.PI, 0.5);
+    drawSprite('tiles', 3, 0, 330, 30, 40, 40, Math.PI, 0.5);
+    drawSprite('tiles', 4, 0, 430, 30, 40, 40, Math.PI, 0.5);
+
+    //drawRect(530, 30, 40, 40, Math.PI, 0.5);
 
     drawScene(gl, programInfo, calls);
     window.requestAnimationFrame(render);
@@ -323,9 +338,9 @@ window.addEventListener('resize', (e) => {
 var cursorX = 256;
 var cursorY = 256;
 
-var graphics = [{ n : 'tiles.png', d: 80 }, { n: 'cursors.png', d: 16 }, { n: 'font.png', d: 9 }].reduce((a, c) => {
+var graphics = [{ n : 'tiles.png', d: 88 }, { n: 'highlight.png', d: 88, noblur: true }, { n: 'cursors.png', d: 16 }, { n: 'font.png', d: 9 }].reduce((a, c) => {
     var name = c.n.split('.')[0];
-    a[name] = loadTexture(c.n, c.d);
+    a[name] = loadTexture(c.n, c.d, c.noblur);
     return a;
 }, {});
 
