@@ -55,10 +55,12 @@ var canvasDimensions = canvas.getBoundingClientRect();
 var vsSource = `
     attribute vec3 aVertexPosition;
     attribute vec2 aTexcoord;
+    attribute vec3 aRecolor;
 
     uniform vec3 uResolution;
 
     varying vec2 vTexcoord;
+    varying vec3 vRecolor;
     
     void main() {
         vec3 zeroToOne = aVertexPosition / uResolution;
@@ -68,17 +70,24 @@ var vsSource = `
         gl_Position = vec4(clipSpace, 1);
 
         vTexcoord = aTexcoord;
+        vRecolor = aRecolor;
     }`;
 
 var fsSource = `
     precision mediump float;
 
     varying vec2 vTexcoord;
+    varying vec3 vRecolor;
 
     uniform sampler2D uTexture;
 
     void main() {
         vec4 color = texture2D(uTexture, vTexcoord);
+        if (color.r < 0.01 && color.g > 0.99 && color.b > 0.99) {
+            color.r = vRecolor.r;
+            color.g = vRecolor.g;
+            color.b = vRecolor.b;
+        }
 
         if (color.a < 0.01) {
             discard;
@@ -117,7 +126,8 @@ var programInfo = {
     program: shaderProgram,
     attribLocations: {
         vertexPosition: gl.getAttribLocation(shaderProgram, 'aVertexPosition'),
-        texturePosition: gl.getAttribLocation(shaderProgram, 'aTexcoord')
+        texturePosition: gl.getAttribLocation(shaderProgram, 'aTexcoord'),
+        recolorData: gl.getAttribLocation(shaderProgram, 'aRecolor')
     },
     uniformLocations: {
         resolution: gl.getUniformLocation(shaderProgram, 'uResolution')
@@ -238,10 +248,34 @@ function drawScene(gl, programInfo, calls) {
             gl.STATIC_DRAW);
         gl.vertexAttribPointer(programInfo.attribLocations.texturePosition, 2, gl.FLOAT, false, 0, 0);
     
+        gl.enableVertexAttribArray(programInfo.attribLocations.recolorData);
+        var buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        var colors = [];
+        drawCalls.forEach(dc => {
+            var color = ((dc[9] || 0) * 1298809) % 16777216;
+            var r = (color & 255) / 255;
+            var g = ((color >> 8) & 255) / 255;
+            var b = ((color >> 16) & 255) / 255;
+            colors.push(r, g, b);
+            colors.push(r, g, b);
+            colors.push(r, g, b);
+            colors.push(r, g, b);
+            colors.push(r, g, b);
+            colors.push(r, g, b);
+        });
+        gl.bufferData(
+            gl.ARRAY_BUFFER,
+            new Float32Array(colors),
+            gl.STATIC_DRAW);
+        gl.vertexAttribPointer(programInfo.attribLocations.recolorData, 3, gl.FLOAT, false, 0, 0);
+
         var count = textureData.length / 2;
         gl.drawArrays(gl.TRIANGLES, 0, count);
     }
 }
+
+
 
 canvas.width = Math.floor(canvasDimensions.width);
 canvas.height = Math.floor(canvasDimensions.height);
@@ -252,11 +286,162 @@ window.addEventListener('resize', (e) => {
     canvas.height = Math.floor(canvasDimensions.height);
 });
 
+var cursorX = 256;
+var cursorY = 256;
+
 var graphics = [{ n : 'tiles.png', d: 32 }, { n: 'cursors.png', d: 16 }, { n: 'font9.png', d: 9 }].reduce((a, c) => {
     var name = c.n.split('.')[0];
     a[name] = loadTexture(c.n, c.d);
     return a;
 }, {});
+
+var showChatbox = false;
+var chat = '';
+
+var ZTILE = 0.5;
+var ZUNITHIGHLIGHT = 0.45;
+var ZUNIT = 0.4;
+var ZUIBACK = 0.35;
+var ZUIMIDDLE = 0.3;
+var ZUIFRONT = 0.25;
+
+function renderText(x, y, text, drawCursor, maxWidth, callback) {
+    text += ' ';
+    var position = 0;
+    var line = 0;
+    for(var i = 0; i < text.length; i++) {
+        var charCode = text.charCodeAt(i);
+        if(charCode == 10) {
+            line++;
+            position = 0;
+            continue;
+        }
+        var spriteX;
+        var spriteY;
+        var valid = false;
+        //a-z = 97-122
+        if (charCode >= 97 && charCode <= 122) {
+            var azIndex = charCode-97;
+            spriteX = azIndex % 16;
+            spriteY = 2+Math.floor(azIndex / 16);
+            valid = true;
+        }
+        //A-Z = 65-90
+        if (charCode >= 65 && charCode <= 90) {
+            var azIndex = charCode-65;
+            spriteX = azIndex % 16;
+            spriteY = Math.floor(azIndex / 16);
+            valid = true;
+        }
+        //0-9 = 48-57
+        if (charCode >= 48 && charCode <= 57) {
+            var azIndex = charCode-48;
+            spriteX = azIndex;
+            spriteY = 4;
+            valid = true;
+        }
+        if (charCode == 47) {
+            spriteX = 1;
+            spriteY = 5;
+            valid = true;
+        }
+        if (charCode == 58) {
+            spriteX = 2;
+            spriteY = 5;
+            valid = true;
+        }
+        if (!!maxWidth && valid && ((position*7) > maxWidth) && text[i+1] != ' ') {
+            // dashes
+            if (text[i-1] != ' ') {
+                spriteX = 3;
+                spriteY = 5;
+                callback('font9', spriteX, spriteY, x+(position*7), y+(line*9), ZUIFRONT);
+            }
+            i--;
+            line++;
+            position = 0;
+            continue;
+        }
+        if (valid) {
+            callback('font9', spriteX, spriteY, x+(position*7), y+(line*9), ZUIFRONT);
+        }
+        position++;
+    }
+    if (drawCursor) {
+        callback('font9', 4, 5, x+((position-1)*7), y+(line*9), ZUIFRONT);
+    }
+}
+
+
+function updateCursorPosition(e) {
+    cursorX += (e.movementX / 3);
+    cursorY += (e.movementY / 3);
+    var onVerticalEdge = false;
+    var onHorizontalEdge = false;
+    if (cursorX < 0) { cursorX = 0; onVerticalEdge = true; }
+    if (cursorY < 0) { cursorY = 0; onHorizontalEdge = true; }
+    if (cursorX > canvas.width-4) { cursorX = canvas.width-4; onVerticalEdge = true; }
+    if (cursorY > canvas.height-8) { cursorY = canvas.height-8; onHorizontalEdge = true; }
+    if ((e.shiftKey && ((e.buttons & 1) == 1)) || ((e.buttons & 4) == 4)) {
+        if (!onVerticalEdge) {
+            cameraX -= (e.movementX / 3);
+        }
+        if (!onHorizontalEdge) {
+            cameraY -= (e.movementY / 3);
+        }
+    }
+}
+function mouseDown(e) {
+    if (e.button == 0) {
+        //select
+        selectionStart = { x: cursorX, y: cursorY };
+        actionLocation = null;
+    }
+}
+
+
+function keyDown(e) {
+    if(e.keyCode >= 48 && e.keyCode <= 57) {
+        var controlGroup = e.keyCode-48;
+        if (e.ctrlKey) {
+            controlGroups[controlGroup] = selection;
+        } else {
+            selection = controlGroups[controlGroup] || [];
+        }
+    }
+    if (e.key == 'Enter') {
+        showChatbox = !showChatbox;
+        if (chat) {
+            if (chat.startsWith('/name ')) {
+                var parts = chat.split(' ');
+                if (parts.length == 2) {
+                    sendMessage({
+                        type: 'name',
+                        data: parts[1].trim()
+                    });
+                }
+            } else {
+                sendMessage({
+                    type: 'chat',
+                    data: chat
+                });
+            }
+            chat = '';
+        }
+    }
+    if (showChatbox) {
+        if (e.key == 'Backspace') {
+            chat = chat.substring(0, chat.length - 1);
+        }
+        //num0a-z = 97-122
+        //A-Z = 65-90
+        //0-9 = 48-57
+        if((e.keyCode >= 96 && e.keyCode <= 122) || (e.keyCode >= 65 && e.keyCode <= 90) || (e.keyCode >= 48 && e.keyCode <= 57) || e.key == '/' || e.key == ' ') {
+            chat += e.key;
+        }
+    }
+    return false;
+}
 
 function beziern(arr, p) {
 	var points = arr;

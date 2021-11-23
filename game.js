@@ -1,5 +1,3 @@
-// use bezier curves to move tiles
-
 var COLOURS = [
 	['blue', 'orange', 'red', 'black', 'teal'],
 	['teal', 'blue', 'orange', 'red', 'black'],
