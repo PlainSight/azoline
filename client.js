@@ -404,12 +404,10 @@ function render(timestamp) {
 
             factories[f].display = { x: fx, y: fy, r: 1.8*maxRadiusOfFactory };
 
-            drawSprite('factory', 0, 0, fx, fy, 1.8*maxRadiusOfFactory, 1.8*maxRadiusOfFactory, 0, 0.6);
 
             var angleBetweenTiles = Math.PI*2/factories[f].tiles.length;
 
             var tileAngle = 0;
-            var highlights = [];
             for (var t = 0; t < factories[f].tiles.length; t++) {
                 var tx = fx + (Math.sin(tileAngle) * maxRadiusOfFactory * 0.5);
                 var ty = fy + (Math.cos(tileAngle) * maxRadiusOfFactory * 0.5);
@@ -417,10 +415,6 @@ function render(timestamp) {
                 var sizeOfTile = maxRadiusOfFactory / 2;
 
                 drawSprite('tiles', (t+f)%5, 0, tx, ty, sizeOfTile, sizeOfTile, 0, 0.5);
-
-                if (Math.hypot(tx - cursorX, ty - cursorY) < (sizeOfTile*0.7)) {
-                    drawSprite('highlight', 0, 0, tx, ty, sizeOfTile, sizeOfTile, 0, 0.5, 'green');
-                }
 
                 tileAngle += angleBetweenTiles;
             }
@@ -466,7 +460,22 @@ function render(timestamp) {
 
 
 
+
     computeFactoryPositions()
+
+    drawSprite('factory', 0, 0, fx, fy, 1.8*maxRadiusOfFactory, 1.8*maxRadiusOfFactory, 0, 0.6);
+
+
+    for(var t = 0; t < tiles.length; t++) {
+
+        if (Math.hypot(tx - cursorX, ty - cursorY) < (sizeOfTile*0.7)) {
+            drawSprite('highlight', 0, 0, tx, ty, sizeOfTile, sizeOfTile, 0, 0.5, 'green');
+        }
+    }
+    
+
+
+
 
     // drawFactories(500, 5, 800, [
     //     { tiles: [{},{},{},{}] },
