@@ -173,7 +173,7 @@ var texturePositionBuffer = gl.createBuffer();
 function drawScene(gl, programInfo, calls) {
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-    gl.clearColor(1.0, 1.0, 1.0, 1.0);
+    gl.clearColor(0.36, 0.64, 1.0, 1.0);
     gl.clearDepth(1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -195,16 +195,36 @@ function drawScene(gl, programInfo, calls) {
         var positions = [];
         function calculatePosition(x, y, w, h, z, angle) {
             y = canvas.height - y;
-            var dx = x + w;
-            var dy = y - h;
             z = z || 0.5;
+
+            var sine = Math.sin(angle);
+            var cosine = Math.cos(angle);
+            // offset vectors
+            var w2 = -w/2; var h2 = -h/2;
+            var v0 = {
+                x: cosine*w2 + sine*h2, y: cosine*h2 - sine*w2
+            };
+            w2 = w/2; h2 = -h/2;
+            var v1 = {
+                x: cosine*w2 + sine*h2, y: cosine*h2 - sine*w2
+            }
+            w2 = w/2; h2 = h/2;
+            var v2 = {
+                x: cosine*w2 + sine*h2, y: cosine*h2 - sine*w2
+            }
+            w2 = -w/2; h2 = h/2;
+            var v3 = {
+                x: cosine*w2 + sine*h2, y: cosine*h2 - sine*w2
+            }
+
             positions.push(
-                x, y, z,
-                dx, y, z,
-                dx, dy, z,
-                x, y, z,
-                x, dy, z,
-                dx, dy, z
+                x+v0.x, y+v0.y, z,
+                x+v1.x, y+v1.y, z,
+                x+v2.x, y+v2.y, z,
+
+                x+v0.x, y+v0.y, z,
+                x+v3.x, y+v3.y, z,
+                x+v2.x, y+v2.y, z
             );
         }
         drawCalls.forEach(dc => {
@@ -273,7 +293,11 @@ function drawScene(gl, programInfo, calls) {
                 case 'green':
                     g = 1;
                     break;
-                default:
+                case grey:
+                    r = 0.5;
+                    g = 0.5;
+                    b = 0.5;
+                    break;
             }
             colors.push(r, g, b);
             colors.push(r, g, b);
@@ -293,7 +317,17 @@ function drawScene(gl, programInfo, calls) {
     }
 }
 
-function render() {
+var lastTimestamp = 0;
+
+var tiles = [];
+var factories = [];
+var boards = [];
+
+function render(timestamp) {
+    var delta = timestamp - lastTimestamp;
+    lastTimestamp = timestamp;
+    var fractionOfSecond = (timestamp % 1000) / 1000;
+
     var calls = {};
 
     function draw(sheet, sx, sy, sw, sh, dx, dy, dw, dh, angle, z, color) {
@@ -308,19 +342,158 @@ function render() {
         draw(sheet, sx, sy, dim, dim, dx, dy, w, h, angle, z, color);
     }
 
+    function computeTilePositions(tiles) {
+        for(var t = 0; t < tiles.length; t++) {
+            var tile = tiles[t];
+            if (tile.transition) {
+                // lerp between origin and destination
+                var lerp = Math.max(1, (tile.startTime - timestamp) / 1000);
+
+                var xy = bezier(tile.transition);
+
+                var size = (tile.transition.from.w * (1-p)) + (tile.transition.to.w * (p));
+
+                tile.display = { x: xy.x, y: xy.y, a: p*Math.PI*4, w: size }
+
+                if (lerp == 1) {
+                    tile.transition = null;
+                }
+            } else {
+                tile.display = tile.position.display;
+            }
+        }
+    }
+
+    function computeBoardPositions(x, y, width, height, pattern, grid) {
+        if (height*2 < width) {
+            width = 2*height;
+        }
+        // calculate pattern positions
+        var unit = width/10;
+
+        for (var y = 0; y < 5; y++) {
+            for (var x = 0; x < y+1; x++) {
+                pattern[y][x].display = { x: (4-x)*unit, y: y*unit, w: unit*0.8 };
+            }
+        }
+
+        for (var y = 0; y < 5; y++) {
+            for (var x = 0; x < 5; x++) {
+                grid[y][x].display = { x: 5+(x*unit), y: y*unit, w: unit*0.8 };
+            }
+        }
+    }
+
+    function computeFactoryPositions(x, y, width, height, factories) {
+        if (height < width) {
+            width = height;
+        }
+        // determine factory size
+        var numberOfFactories = factories.length;
+        var angleBetween = Math.PI*2/numberOfFactories;
+
+        var outerDiameter = width * Math.PI;
+        var maxRadiusOfFactory = (width*Math.PI) / ((2*numberOfFactories) + (2*Math.PI));
+        var distanceFromCenter = (width/2) - maxRadiusOfFactory;
+        var center = { x: x+(width/2), y: y+(width/2) };
+
+        var factoryAngle = 0;
+        for(var f = 0; f < numberOfFactories; f++) {
+            var fx = center.x + (Math.sin(factoryAngle) * distanceFromCenter);
+            var fy = center.y + (Math.cos(factoryAngle) * distanceFromCenter);
+
+            factories[f].display = { x: fx, y: fy, r: 1.8*maxRadiusOfFactory };
+
+            drawSprite('factory', 0, 0, fx, fy, 1.8*maxRadiusOfFactory, 1.8*maxRadiusOfFactory, 0, 0.6);
+
+            var angleBetweenTiles = Math.PI*2/factories[f].tiles.length;
+
+            var tileAngle = 0;
+            var highlights = [];
+            for (var t = 0; t < factories[f].tiles.length; t++) {
+                var tx = fx + (Math.sin(tileAngle) * maxRadiusOfFactory * 0.5);
+                var ty = fy + (Math.cos(tileAngle) * maxRadiusOfFactory * 0.5);
+
+                var sizeOfTile = maxRadiusOfFactory / 2;
+
+                drawSprite('tiles', (t+f)%5, 0, tx, ty, sizeOfTile, sizeOfTile, 0, 0.5);
+
+                if (Math.hypot(tx - cursorX, ty - cursorY) < (sizeOfTile*0.7)) {
+                    drawSprite('highlight', 0, 0, tx, ty, sizeOfTile, sizeOfTile, 0, 0.5, 'green');
+                }
+
+                tileAngle += angleBetweenTiles;
+            }
+
+            factoryAngle += angleBetween;
+        }
+
+    }
+
     // function drawRect(dx, dy, w, h, angle, z, color) {
     //     draw('', 0, 0, 1, 1, dx, dy, w, h, angle, z, color);
     // }
 
-    drawSprite('tiles', 0, 0, 30, 30, 40, 40, Math.PI, 0.5);
-    drawSprite('highlight', 0, 0, 30, 30, 40, 40, Math.PI, 0.6, 'red');
-    drawSprite('tiles', 1, 0, 130, 30, 40, 40, Math.PI, 0.5);
-    drawSprite('highlight', 0, 0, 130, 30, 40, 40, Math.PI, 0.6, 'green');
-    drawSprite('tiles', 2, 0, 230, 30, 40, 40, Math.PI, 0.5);
-    drawSprite('tiles', 3, 0, 330, 30, 40, 40, Math.PI, 0.5);
-    drawSprite('tiles', 4, 0, 430, 30, 40, 40, Math.PI, 0.5);
+    // drawSprite('highlight', 0, 0, 30, 30, 40, 40, 0, 0.6, 'red');
+    // drawSprite('highlight', 0, 0, 130, 30, 40, 40, Math.PI/2, 0.6, 'green');
+    // drawSprite('tiles', 0, 0, 240, 220, 30, 30, fractionOfSecond * 0.5 * Math.PI, 0.5);
+    // drawSprite('tiles', 1, 0, 280, 220, 30, 30, fractionOfSecond * 0.5 * Math.PI, 0.5);
+    // drawSprite('tiles', 2, 0, 240, 270, 30, 30, fractionOfSecond * 0.5 * Math.PI, 0.5);
+    // drawSprite('tiles', 3, 0, 280, 270, 30, 30, fractionOfSecond * 0.5 * Math.PI, 0.5);
+    // drawSprite('tiles', 4, 0, 430, 30, 30, 30, fractionOfSecond * 0.5 * Math.PI, 0.5);
 
-    //drawRect(530, 30, 40, 40, Math.PI, 0.5);
+    // drawSprite('factory', 0, 0, 200, 200, 120, 120, fractionOfSecond * 0.5 * Math.PI, 0.6);
+
+    //computeFactoryPositions
+
+    // calculate display based on canvas resolution;
+
+    if (canvas.width < canvas.height) {
+        // vert layout
+        // X X
+        // X X
+        //  F
+        //  B
+        var oppositionBoardWidth = canvas.width/2;
+        var oppositionBoardHeight = canvas.height / 5;
+        var 
+    } else {
+        // hori layout
+        // X F X
+        // X F X
+        //   B
+    }
+
+
+
+    computeFactoryPositions()
+
+    // drawFactories(500, 5, 800, [
+    //     { tiles: [{},{},{},{}] },
+    //     { tiles: [{},{},{},{}] },
+    //     { tiles: [{},{},{}] },
+    //     { tiles: [{},{},{},{}] },
+    //     { tiles: [{},{},{},{}] },
+    //     { tiles: [{},{},{}] },
+    //     { tiles: [{},{},{},{}] },
+    //     { tiles: [{},{},{},{}] },
+    //     { tiles: [{},{},{}] },
+    //     { tiles: [{},{},{},{}] },
+    //     { tiles: [{},{},{},{}] }
+    // ].slice(0,7))
+
+    // compute positions for things
+
+    
+
+    // draw factories
+
+    // draw boards
+
+    // draw tiles
+
+    // draw text
+
 
     drawScene(gl, programInfo, calls);
     window.requestAnimationFrame(render);
@@ -338,7 +511,7 @@ window.addEventListener('resize', (e) => {
 var cursorX = 256;
 var cursorY = 256;
 
-var graphics = [{ n : 'tiles.png', d: 88 }, { n: 'highlight.png', d: 88, noblur: true }, { n: 'cursors.png', d: 16 }, { n: 'font.png', d: 9 }].reduce((a, c) => {
+var graphics = [{ n : 'tiles.png', d: 88 }, { n : 'places.png', d: 88 }, { n: 'factory.png', d: 200 }, { n: 'highlight.png', d: 88, noblur: true }, { n: 'cursors.png', d: 16 }, { n: 'font.png', d: 9 }].reduce((a, c) => {
     var name = c.n.split('.')[0];
     a[name] = loadTexture(c.n, c.d, c.noblur);
     return a;
@@ -421,25 +594,11 @@ function renderText(x, y, text, drawCursor, maxWidth, callback) {
     }
 }
 
-
 function updateCursorPosition(e) {
-    cursorX += (e.movementX / 3);
-    cursorY += (e.movementY / 3);
-    var onVerticalEdge = false;
-    var onHorizontalEdge = false;
-    if (cursorX < 0) { cursorX = 0; onVerticalEdge = true; }
-    if (cursorY < 0) { cursorY = 0; onHorizontalEdge = true; }
-    if (cursorX > canvas.width-4) { cursorX = canvas.width-4; onVerticalEdge = true; }
-    if (cursorY > canvas.height-8) { cursorY = canvas.height-8; onHorizontalEdge = true; }
-    if ((e.shiftKey && ((e.buttons & 1) == 1)) || ((e.buttons & 4) == 4)) {
-        if (!onVerticalEdge) {
-            cameraX -= (e.movementX / 3);
-        }
-        if (!onHorizontalEdge) {
-            cameraY -= (e.movementY / 3);
-        }
-    }
+    cursorX = e.x;
+    cursorY = e.y;
 }
+
 function mouseDown(e) {
     if (e.button == 0) {
         //select
@@ -447,7 +606,6 @@ function mouseDown(e) {
         actionLocation = null;
     }
 }
-
 
 function keyDown(e) {
     if(e.keyCode >= 48 && e.keyCode <= 57) {
@@ -492,6 +650,10 @@ function keyDown(e) {
     return false;
 }
 
+document.addEventListener('mousemove', updateCursorPosition, false);
+document.addEventListener('mousedown', mouseDown, false);
+document.addEventListener('keydown', keyDown, false);
+
 function beziern(arr, p) {
 	var points = arr;
 	
@@ -513,29 +675,39 @@ function beziern(arr, p) {
 	return points[0];
 }
 
-function bezier(x0, y0, x1, y1, p) {
+function bezier(transition, p) {
 	// project a point no more than len(x0x1, y0y1) from the middle of vec(x0x1, y0y1) at 90 degrees.
 	
-	var xm = (x0 + x1) / 2;
-	var ym = (y0 + y1) / 2;
-	
-	var dx = y1 - y0;
-	var dy = x0 - x1;
-	
-	var swing = 0.8;
-	
-	var mul = (swing*2*Math.random()) - swing;
-	
-	var midx = xm + (mul * dx);
-	var midy = ym + (mul * dy);
-	
-	// select a random point near the destination
-	
-	var dist = 30;
-	var angle = Math.random() * 2 * Math.PI;
-	
-	var nearDestx = x1 + (Math.sin(angle) * dist);
-	var nearDesty = y1 + (Math.cos(angle) * dist);
-	
-	return [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1].map(p => beziern([{ x: x0, y: y0 }, { x: midx, y: midy }, { x: nearDestx, y: nearDesty }, { x: x1, y: y1 }], p)).map(v => v.x +' ' + v.y).reduce((a, c) => a+'\n'+c);
+    var x0 = transition.from.x;
+    var y0 = transition.to.y;
+    var x1 = transition.from.x;
+    var y1 = transition.to.y;
+
+    var xm = (x0 + x1) / 2;
+    var ym = (y0 + y1) / 2;
+    
+    var dx = y1 - y0;
+    var dy = x0 - x1;
+    
+    var swing = 0.8;
+    
+    var mul = (swing*2*transition.r1) - swing;
+    
+    var midx = xm + (mul * dx);
+    var midy = ym + (mul * dy);
+    
+    // select a random point near the destination
+    
+    var dist = 30;
+    var angle = transition.r2 * 2 * Math.PI;
+    
+    var nearDestx = x1 + (Math.sin(angle) * dist);
+    var nearDesty = y1 + (Math.cos(angle) * dist);
+
+	 beziern([
+         { x: x0, y: y0 },
+         { x: midx, y: midy },
+         { x: nearDestx, y: nearDesty },
+         { x: x1, y: y1 }], 
+         p);
 }
