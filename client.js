@@ -361,7 +361,8 @@ function NewBoard(id, name, score) {
 
 var factories = [{},{},{},{},{},{},{}];
 var boards = [NewBoard(1, 'doug'),NewBoard(2, 'fred'),NewBoard(3, 'nancy'),NewBoard(4, 'ponce'),NewBoard(5, 'lily')];
-var tiles = [{ colour: 2, position: factories[0] }, { colour: 5, position: factories[0] }, { colour: 2, position: factories[0] }, { colour: 3, position: factories[0] }];
+var tiles = [{ colour: 2, position: factories[0] }, { colour: 4, position: factories[0] }, { colour: 2, position: factories[0] }, { colour: 3, position: factories[0] }];
+var middle = {};
 
 function render(timestamp) {
     var delta = timestamp - lastTimestamp;
@@ -426,7 +427,7 @@ function render(timestamp) {
             position++;
         }
         if (drawCursor) {
-            drawSprite('font', 4, 5, x+((position-1)*w), y, 0.35);
+            drawSprite('font', 4, 5, x+((position)*w), y, w, w, 0, 0.35);
         }
     }
 
@@ -618,7 +619,6 @@ function render(timestamp) {
             drawSprite('highlight', 0, 0, pc.display.x, pc.display.y, pc.display.w, pc.display.w, 0, 0.5, 'grey');
         }));
         b.grid.forEach((gr, gri) => gr.forEach((gc, gci) => {
-            drawSprite('highlight', 0, 0, gc.display.x, gc.display.y, gc.display.w, gc.display.w, 0, 0.55, 'grey');
             drawSprite('places', COLOURS[gri][gci], 0, gc.display.x, gc.display.y, gc.display.w, gc.display.w, 0, 0.5);
         }));
         b.floor.forEach((f, fi) => {
@@ -654,6 +654,39 @@ function render(timestamp) {
             drawSprite('highlight', 0, 0, t.display.x, t.display.y, t.display.w, t.display.w, 0, 0.45, 'green');
         }
     });
+
+    // draw chat
+    chatlog = chatlog.filter(c => c.age > (Date.now() - 15000));
+
+    chatlog = [
+        { message: 'a', age: Date.now() },
+        { message: 'b', age: Date.now() },
+        { message: 'c', age: Date.now() },
+        { message: 'd', age: Date.now() },
+        { message: 'e', age: Date.now() },
+        { message: 'f', age: Date.now() },
+        { message: 'g', age: Date.now() },
+        { message: 'h', age: Date.now() },
+        { message: 'i', age: Date.now() },
+        { message: 'j', age: Date.now() },
+        { message: 'k', age: Date.now() },
+        { message: 'l', age: Date.now() },
+        { message: 'm', age: Date.now() },
+        { message: 'n', age: Date.now() },
+];
+
+    var top = canvas.height/2;
+    var unit = canvas.height/20;
+    var j = 0;
+    for (var i = Math.max(0, chatlog.length - 8); i < chatlog.length; i++) {
+        drawText(unit, top + unit + (j*unit), unit*0.8, chatlog[i].message);
+        j++;
+    }
+
+    if (showChatbox) {
+        console.log(fractionOfSecond);
+        drawText(unit, top + (9*unit), unit*0.8, ':' + chat, fractionOfSecond < 0.5);
+    }
 
     drawScene(gl, programInfo, calls);
     window.requestAnimationFrame(render);
