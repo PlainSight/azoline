@@ -48,8 +48,16 @@ function processMessage(m) {
         case 'state':
             message.data;
             break;
-        case 'action':
-            message.data;
+        case 'start':
+            playerId = message.data.playerId;
+            boards = message.data.players.map(p => NewBoard(p.id, p.name, p.score));
+            factories = message.data.factories;
+            tiles = message.data.tiles.map(t => {
+                return {
+                    position: factories[t.factoryid],
+                    colour: t.colour
+                };
+            });
             break;
     }
 }
@@ -200,19 +208,19 @@ function drawScene(gl, programInfo, calls) {
             var sine = Math.sin(angle);
             var cosine = Math.cos(angle);
             // offset vectors
-            var w2 = -w/2; var h2 = -h/2;
+            var w2 = -w/2; var h2 = h/2;
             var v0 = {
                 x: cosine*w2 + sine*h2, y: cosine*h2 - sine*w2
             };
-            w2 = w/2; h2 = -h/2;
+            w2 = w/2; h2 = h/2;
             var v1 = {
                 x: cosine*w2 + sine*h2, y: cosine*h2 - sine*w2
             }
-            w2 = w/2; h2 = h/2;
+            w2 = w/2; h2 = -h/2;
             var v2 = {
                 x: cosine*w2 + sine*h2, y: cosine*h2 - sine*w2
             }
-            w2 = -w/2; h2 = h/2;
+            w2 = -w/2; h2 = -h/2;
             var v3 = {
                 x: cosine*w2 + sine*h2, y: cosine*h2 - sine*w2
             }
@@ -293,7 +301,7 @@ function drawScene(gl, programInfo, calls) {
                 case 'green':
                     g = 1;
                     break;
-                case grey:
+                case 'grey':
                     r = 0.5;
                     g = 0.5;
                     b = 0.5;
@@ -318,10 +326,42 @@ function drawScene(gl, programInfo, calls) {
 }
 
 var lastTimestamp = 0;
+var playerId = 2;
 
-var tiles = [];
-var factories = [];
-var boards = [];
+var COLOURS = [
+    [2, 3, 4, 0, 1],
+    [1, 2, 3, 4, 0],
+    [0, 1, 2, 3, 4],
+    [4, 0, 1, 2, 3],
+    [3, 4, 0, 1, 2]
+];
+
+function NewBoard(id, name, score) {
+    return {
+        id: id,
+        name: name,
+        score: score || 0,
+        pattern: [
+            [{}],
+            [{},{}],
+            [{},{},{}],
+            [{},{},{},{}],
+            [{},{},{},{},{}]
+        ],
+        grid: [
+            [{},{},{},{},{}],
+            [{},{},{},{},{}],
+            [{},{},{},{},{}],
+            [{},{},{},{},{}],
+            [{},{},{},{},{}]
+        ],
+        floor: [{},{},{},{},{},{},{}]
+    }
+}
+
+var factories = [{},{},{},{},{},{},{}];
+var boards = [NewBoard(1, 'doug'),NewBoard(2, 'fred'),NewBoard(3, 'nancy'),NewBoard(4, 'ponce'),NewBoard(5, 'lily')];
+var tiles = [{ colour: 2, position: factories[0] }, { colour: 5, position: factories[0] }, { colour: 2, position: factories[0] }, { colour: 3, position: factories[0] }];
 
 function render(timestamp) {
     var delta = timestamp - lastTimestamp;
@@ -342,10 +382,57 @@ function render(timestamp) {
         draw(sheet, sx, sy, dim, dim, dx, dy, w, h, angle, z, color);
     }
 
+    function drawText(x, y, w, text, drawCursor) {
+        var position = 0;
+        for(var i = 0; i < text.length; i++) {
+            var charCode = text.charCodeAt(i);
+            var spriteX;
+            var spriteY;
+            var valid = false;
+            //a-z = 97-122
+            if (charCode >= 97 && charCode <= 122) {
+                var azIndex = charCode-97;
+                spriteX = azIndex % 16;
+                spriteY = 2+Math.floor(azIndex / 16);
+                valid = true;
+            }
+            //A-Z = 65-90
+            if (charCode >= 65 && charCode <= 90) {
+                var azIndex = charCode-65;
+                spriteX = azIndex % 16;
+                spriteY = Math.floor(azIndex / 16);
+                valid = true;
+            }
+            //0-9 = 48-57
+            if (charCode >= 48 && charCode <= 57) {
+                var azIndex = charCode-48;
+                spriteX = azIndex;
+                spriteY = 4;
+                valid = true;
+            }
+            if (charCode == 47) {
+                spriteX = 1;
+                spriteY = 5;
+                valid = true;
+            }
+            if (charCode == 58) {
+                spriteX = 2;
+                spriteY = 5;
+                valid = true;
+            }
+            if (valid) {
+                drawSprite('font', spriteX, spriteY, x+(position*w), y, w, w, 0, 0.35);
+            }
+            position++;
+        }
+        if (drawCursor) {
+            drawSprite('font', 4, 5, x+((position-1)*w), y, 0.35);
+        }
+    }
+
     function computeTilePositions(tiles) {
-        for(var t = 0; t < tiles.length; t++) {
-            var tile = tiles[t];
-            if (tile.transition) {
+        tiles.forEach(t => {
+            if (t.transition) {
                 // lerp between origin and destination
                 var lerp = Math.max(1, (tile.startTime - timestamp) / 1000);
 
@@ -359,64 +446,99 @@ function render(timestamp) {
                     tile.transition = null;
                 }
             } else {
-                tile.display = tile.position.display;
+                if (t.position.display.tiles) {
+                    t.display = t.position.display.tiles.pop();
+                } else {
+                    t.display = tile.position.display;
+                }
             }
-        }
+        });
     }
 
-    function computeBoardPositions(x, y, width, height, pattern, grid) {
-        if (height*2 < width) {
-            width = 2*height;
+    function computeBoardPositions(left, top, width, height, board) {
+        var widthDiff = 0;
+        if (height*1.6 < width) {
+            widthDiff = width - 1.6*height;
+            width = 1.6*height;
         }
+        left += (widthDiff/1.6); // if we need to shrink the width we must shuffle in
+
         // calculate pattern positions
         var unit = width/10;
+        top += (unit/2);
+        left += (unit/2);
 
         for (var y = 0; y < 5; y++) {
             for (var x = 0; x < y+1; x++) {
-                pattern[y][x].display = { x: (4-x)*unit, y: y*unit, w: unit*0.8 };
+                board.pattern[y][x].display = { x: left + (4-x)*unit, y: top + y*unit, w: unit*0.8 };
             }
         }
 
+        // calculate grid positions
         for (var y = 0; y < 5; y++) {
             for (var x = 0; x < 5; x++) {
-                grid[y][x].display = { x: 5+(x*unit), y: y*unit, w: unit*0.8 };
+                board.grid[y][x].display = { x: left + ((5+x)*unit), y: top + y*unit, w: unit*0.8 };
             }
         }
+
+        // calculate floor positions
+        for (var x = 0; x < 7; x++) {
+            board.floor[x].display = { x: left + (x*unit), y: top + 5*unit, w: unit*0.8 };
+        }
+
+        // calculate text positions
+        // score
+        // name
+        board.display = {
+            name: {
+                x: left,
+                y: top,
+                w: unit*0.8
+            },
+            score: {
+                x: left + width - 3*unit,
+                y: top + unit*5,
+                w: unit*0.8
+            }
+        }
+
     }
 
-    function computeFactoryPositions(x, y, width, height, factories) {
+    function computeFactoryPositions(left, top, width, height, factories) {
+        var widthDiff = 0;
         if (height < width) {
+            widthDiff = width - height;
             width = height;
         }
+        left += (widthDiff/2);
         // determine factory size
         var numberOfFactories = factories.length;
         var angleBetween = Math.PI*2/numberOfFactories;
 
-        var outerDiameter = width * Math.PI;
         var maxRadiusOfFactory = (width*Math.PI) / ((2*numberOfFactories) + (2*Math.PI));
         var distanceFromCenter = (width/2) - maxRadiusOfFactory;
-        var center = { x: x+(width/2), y: y+(width/2) };
+        var center = { x: left+(width/2), y: top+(width/2) };
 
         var factoryAngle = 0;
         for(var f = 0; f < numberOfFactories; f++) {
             var fx = center.x + (Math.sin(factoryAngle) * distanceFromCenter);
             var fy = center.y + (Math.cos(factoryAngle) * distanceFromCenter);
 
-            factories[f].display = { x: fx, y: fy, r: 1.8*maxRadiusOfFactory };
-
-
-            var angleBetweenTiles = Math.PI*2/factories[f].tiles.length;
+            factories[f].display = { x: fx, y: fy, w: 1.8*maxRadiusOfFactory, tiles: [] };
 
             var tileAngle = 0;
-            for (var t = 0; t < factories[f].tiles.length; t++) {
+            for (var t = 0; t < 4; t++) {
                 var tx = fx + (Math.sin(tileAngle) * maxRadiusOfFactory * 0.5);
                 var ty = fy + (Math.cos(tileAngle) * maxRadiusOfFactory * 0.5);
-
                 var sizeOfTile = maxRadiusOfFactory / 2;
 
-                drawSprite('tiles', (t+f)%5, 0, tx, ty, sizeOfTile, sizeOfTile, 0, 0.5);
+                factories[f].display.tiles.push({
+                    x: tx,
+                    y: ty,
+                    w: sizeOfTile
+                });
 
-                tileAngle += angleBetweenTiles;
+                tileAngle += Math.PI*0.5;
             }
 
             factoryAngle += angleBetween;
@@ -424,85 +546,114 @@ function render(timestamp) {
 
     }
 
-    // function drawRect(dx, dy, w, h, angle, z, color) {
-    //     draw('', 0, 0, 1, 1, dx, dy, w, h, angle, z, color);
-    // }
-
-    // drawSprite('highlight', 0, 0, 30, 30, 40, 40, 0, 0.6, 'red');
-    // drawSprite('highlight', 0, 0, 130, 30, 40, 40, Math.PI/2, 0.6, 'green');
-    // drawSprite('tiles', 0, 0, 240, 220, 30, 30, fractionOfSecond * 0.5 * Math.PI, 0.5);
-    // drawSprite('tiles', 1, 0, 280, 220, 30, 30, fractionOfSecond * 0.5 * Math.PI, 0.5);
-    // drawSprite('tiles', 2, 0, 240, 270, 30, 30, fractionOfSecond * 0.5 * Math.PI, 0.5);
-    // drawSprite('tiles', 3, 0, 280, 270, 30, 30, fractionOfSecond * 0.5 * Math.PI, 0.5);
-    // drawSprite('tiles', 4, 0, 430, 30, 30, 30, fractionOfSecond * 0.5 * Math.PI, 0.5);
-
-    // drawSprite('factory', 0, 0, 200, 200, 120, 120, fractionOfSecond * 0.5 * Math.PI, 0.6);
-
-    //computeFactoryPositions
-
     // calculate display based on canvas resolution;
+
+    var playerCount = boards.length;
 
     if (canvas.width < canvas.height) {
         // vert layout
         // X X
-        // X X
+        // X X (optional)
         //  F
         //  B
         var oppositionBoardWidth = canvas.width/2;
-        var oppositionBoardHeight = canvas.height / 5;
-        var 
+        var oppositionBoardHeight = playerCount > 3 ? canvas.height / 6 : canvas.height / 4;
+        var remainingHeight = canvas.height - (oppositionBoardHeight * (playerCount > 3 ? 2 : 1));
+        var factoryHeight = remainingHeight * 0.6;
+        var factoryWidth = canvas.width;
+        var playerBoardHeight = remainingHeight * 0.4;
+        var playerBoardWidth = canvas.width;
+
+        computeFactoryPositions(0, canvas.height - remainingHeight, factoryWidth, factoryHeight, factories);
+
+        var oppositionCount = 0;
+        boards.forEach(b => {
+            if (b.id == playerId) {
+                computeBoardPositions(0, canvas.height - playerBoardHeight, playerBoardWidth, playerBoardHeight, b);
+            } else {
+                var xpos = oppositionCount % 2;
+                var ypos = Math.floor(oppositionCount / 2);
+                computeBoardPositions(xpos*oppositionBoardWidth, ypos*oppositionBoardHeight, oppositionBoardWidth, oppositionBoardHeight, b);
+
+                oppositionCount++;
+            }
+        });
+
     } else {
         // hori layout
         // X F X
         // X F X
         //   B
+        var oppositionBoardWidth = canvas.width / 4;
+        var oppositionBoardHeight = playerCount > 3 ? canvas.height / 4 : canvas.height / 2;
+        var factoryHeight = canvas.height * 0.6;
+        var factoryWidth = canvas.width / 2;
+        var playerBoardHeight = canvas.height*0.4;
+        var playerBoardWidth = canvas.width;
+
+        computeFactoryPositions(oppositionBoardWidth, 0, factoryWidth, factoryHeight, factories);
+
+        var oppositionCount = 0;
+        boards.forEach(b => {
+            if (b.id == playerId) {
+                computeBoardPositions(0, canvas.height - playerBoardHeight, playerBoardWidth, playerBoardHeight, b);
+            } else {
+                var xpos = oppositionCount % 2;
+                var ypos = Math.floor(oppositionCount / 2);
+                computeBoardPositions(xpos*(oppositionBoardWidth+factoryWidth), ypos*oppositionBoardHeight, oppositionBoardWidth, oppositionBoardHeight, b);
+
+                oppositionCount++;
+            }
+        });
     }
 
+    computeTilePositions(tiles);
+
+    factories.forEach(f => {
+        drawSprite('factory', 0, 0, f.display.x, f.display.y, f.display.w, f.display.w, 0, 0.6);
+    });
+
+    boards.forEach(b => {
+        b.pattern.forEach(pr => pr.forEach(pc => {
+            drawSprite('highlight', 0, 0, pc.display.x, pc.display.y, pc.display.w, pc.display.w, 0, 0.5, 'grey');
+        }));
+        b.grid.forEach((gr, gri) => gr.forEach((gc, gci) => {
+            drawSprite('highlight', 0, 0, gc.display.x, gc.display.y, gc.display.w, gc.display.w, 0, 0.55, 'grey');
+            drawSprite('places', COLOURS[gri][gci], 0, gc.display.x, gc.display.y, gc.display.w, gc.display.w, 0, 0.5);
+        }));
+        b.floor.forEach((f, fi) => {
+            drawSprite('highlight', 0, 0, f.display.x, f.display.y, f.display.w, f.display.w, 0, 0.55, 'red');
+        });
+        // draw text
+        drawText(b.display.name.x, b.display.name.y, b.display.name.w, b.name, false);
+        drawText(b.display.score.x, b.display.score.y, b.display.score.w, ''+b.score, false);
+    });
 
 
-
-    computeFactoryPositions()
-
-    drawSprite('factory', 0, 0, fx, fy, 1.8*maxRadiusOfFactory, 1.8*maxRadiusOfFactory, 0, 0.6);
-
-
-    for(var t = 0; t < tiles.length; t++) {
-
-        if (Math.hypot(tx - cursorX, ty - cursorY) < (sizeOfTile*0.7)) {
-            drawSprite('highlight', 0, 0, tx, ty, sizeOfTile, sizeOfTile, 0, 0.5, 'green');
+    // process cursorPosition
+    var highlightedPosition = null;
+    var highlightedColour = null;
+    tiles.forEach(t => {
+        if (Math.hypot(t.display.x - cursorX, t.display.y - cursorY) < (t.display.w*0.7)) {
+            highlightedPosition = t.position;
+            highlightedColour = t.colour;
         }
+    })
+
+    // process most recent click
+    var click = clicks.pop();
+    clicks = [];
+    if(click) {
+        //tiles.forEach(t => )
     }
-    
 
+    tiles.forEach(t => {
+        drawSprite('tiles', t.colour, 0, t.display.x, t.display.y, t.display.w, t.display.w, 0, 0.5);
 
-
-
-    // drawFactories(500, 5, 800, [
-    //     { tiles: [{},{},{},{}] },
-    //     { tiles: [{},{},{},{}] },
-    //     { tiles: [{},{},{}] },
-    //     { tiles: [{},{},{},{}] },
-    //     { tiles: [{},{},{},{}] },
-    //     { tiles: [{},{},{}] },
-    //     { tiles: [{},{},{},{}] },
-    //     { tiles: [{},{},{},{}] },
-    //     { tiles: [{},{},{}] },
-    //     { tiles: [{},{},{},{}] },
-    //     { tiles: [{},{},{},{}] }
-    // ].slice(0,7))
-
-    // compute positions for things
-
-    
-
-    // draw factories
-
-    // draw boards
-
-    // draw tiles
-
-    // draw text
-
+        if (t.position == highlightedPosition && t.colour == highlightedColour) {
+            drawSprite('highlight', 0, 0, t.display.x, t.display.y, t.display.w, t.display.w, 0, 0.45, 'green');
+        }
+    });
 
     drawScene(gl, programInfo, calls);
     window.requestAnimationFrame(render);
@@ -519,8 +670,16 @@ window.addEventListener('resize', (e) => {
 
 var cursorX = 256;
 var cursorY = 256;
+var clicks = [];
 
-var graphics = [{ n : 'tiles.png', d: 88 }, { n : 'places.png', d: 88 }, { n: 'factory.png', d: 200 }, { n: 'highlight.png', d: 88, noblur: true }, { n: 'cursors.png', d: 16 }, { n: 'font.png', d: 9 }].reduce((a, c) => {
+
+var graphics = [
+    { n : 'tiles.png', d: 88 },
+    { n : 'places.png', d: 88 },
+    { n: 'factory.png', d: 200 },
+    { n: 'highlight.png', d: 88, noblur: true },
+    { n: 'font.png', d: 11, noblur: true }
+].reduce((a, c) => {
     var name = c.n.split('.')[0];
     a[name] = loadTexture(c.n, c.d, c.noblur);
     return a;
@@ -528,80 +687,6 @@ var graphics = [{ n : 'tiles.png', d: 88 }, { n : 'places.png', d: 88 }, { n: 'f
 
 var showChatbox = false;
 var chat = '';
-
-var ZTILE = 0.5;
-var ZUNITHIGHLIGHT = 0.45;
-var ZUNIT = 0.4;
-var ZUIBACK = 0.35;
-var ZUIMIDDLE = 0.3;
-var ZUIFRONT = 0.25;
-
-function renderText(x, y, text, drawCursor, maxWidth, callback) {
-    text += ' ';
-    var position = 0;
-    var line = 0;
-    for(var i = 0; i < text.length; i++) {
-        var charCode = text.charCodeAt(i);
-        if(charCode == 10) {
-            line++;
-            position = 0;
-            continue;
-        }
-        var spriteX;
-        var spriteY;
-        var valid = false;
-        //a-z = 97-122
-        if (charCode >= 97 && charCode <= 122) {
-            var azIndex = charCode-97;
-            spriteX = azIndex % 16;
-            spriteY = 2+Math.floor(azIndex / 16);
-            valid = true;
-        }
-        //A-Z = 65-90
-        if (charCode >= 65 && charCode <= 90) {
-            var azIndex = charCode-65;
-            spriteX = azIndex % 16;
-            spriteY = Math.floor(azIndex / 16);
-            valid = true;
-        }
-        //0-9 = 48-57
-        if (charCode >= 48 && charCode <= 57) {
-            var azIndex = charCode-48;
-            spriteX = azIndex;
-            spriteY = 4;
-            valid = true;
-        }
-        if (charCode == 47) {
-            spriteX = 1;
-            spriteY = 5;
-            valid = true;
-        }
-        if (charCode == 58) {
-            spriteX = 2;
-            spriteY = 5;
-            valid = true;
-        }
-        if (!!maxWidth && valid && ((position*7) > maxWidth) && text[i+1] != ' ') {
-            // dashes
-            if (text[i-1] != ' ') {
-                spriteX = 3;
-                spriteY = 5;
-                callback('font9', spriteX, spriteY, x+(position*7), y+(line*9), ZUIFRONT);
-            }
-            i--;
-            line++;
-            position = 0;
-            continue;
-        }
-        if (valid) {
-            callback('font9', spriteX, spriteY, x+(position*7), y+(line*9), ZUIFRONT);
-        }
-        position++;
-    }
-    if (drawCursor) {
-        callback('font9', 4, 5, x+((position-1)*7), y+(line*9), ZUIFRONT);
-    }
-}
 
 function updateCursorPosition(e) {
     cursorX = e.x;
@@ -611,8 +696,7 @@ function updateCursorPosition(e) {
 function mouseDown(e) {
     if (e.button == 0) {
         //select
-        selectionStart = { x: cursorX, y: cursorY };
-        actionLocation = null;
+        clicks.push({ x: cursorX, y: cursorY });
     }
 }
 
