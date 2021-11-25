@@ -34,7 +34,6 @@ function parseMessage(m, client) {
             if (!client.player) {
                 client.send({ type: 'nameplease' });
             } else {
-                console.log(client.player);
                 if (client.player.game) {
                     client.player.state();
                 } else {
@@ -45,6 +44,11 @@ function parseMessage(m, client) {
         case 'chat': // chat
             if (client.player) {
                 client.player.chat(message.data);
+            }
+            break;
+        case 'start': 
+            if (client.player) {
+                client.player.startGame();
             }
             break;
         case 'name':    // client sets their name

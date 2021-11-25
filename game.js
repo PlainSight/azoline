@@ -12,12 +12,14 @@ function Game(code, host) {
 	this.id = code;
 	this.players = [host];
 	host.isAdmin = true;
+	host.game = this;
 	this.factories = [];
 	this.middle = [];
 	this.turn = 0;
 
 	this.addPlayer = function(player) {
 		this.players.push(player);
+		player.game = this;
 
 		this.broadcastPlayerlist();
 		player.sendId();
@@ -40,10 +42,17 @@ function Game(code, host) {
 
 	this.start = function() {
 		this.broadcast({
-			type: 'message',
+			type: 'text',
 			data: 'The game is about to begin!'
 		});
 		this.turn = Math.floor(Math.random() * this.players.length);
+	}
+
+	this.chat = function(m) {
+		this.broadcast({
+			type: 'text',
+			data: m
+		});
 	}
 
 	this.broadcast = function(message) {
@@ -68,6 +77,7 @@ function Game(code, host) {
 	});
 	this.broadcastPlayerlist();
 	host.sendId();
+	host.sendHost();
 
 	return this;
 }
@@ -131,6 +141,12 @@ function Player(client) {
 		this.client.send({
 			type: 'playerid',
 			data: this.id
+		})
+	}
+
+	this.sendHost = function() {
+		this.client.send({
+			type: 'host'
 		})
 	}
 

@@ -35,9 +35,7 @@ function processMessage(m) {
     var message = JSON.parse(m);
     switch (message.type) {
         case 'text':
-            message.data.forEach(m => {
-                chatlog.push({ message: m, age: Date.now() });
-            });
+            chatlog.push({ message: message.data, age: Date.now() });
             break;
         case 'cookie':
             localStorage.setItem('azoline0.1', message.data.cookie);
@@ -49,7 +47,10 @@ function processMessage(m) {
             showNamebox = true;
             break;
         case 'lobby':
-            lobbyName = message.data.lobbyName;
+            lobbyName = message.data;
+            break;
+        case 'host':
+            showHostUI = true;
             break;
         case 'state':
             message.data;
@@ -448,7 +449,7 @@ function render(timestamp) {
         }
     }
 
-    function drawPrompt(x, y, width, height, text, val) {
+    function drawPrompt(x, y, width, height, text, type, cb) {
         var unit = height / 4;
         var tilesWide = Math.ceil(width/unit);
         
@@ -467,20 +468,34 @@ function render(timestamp) {
         // draw text here
         drawText(x+unit, y+unit, unit/2, text, 0.15, false);
 
-        drawSprite('backer', 0, 2, x, y+(2*unit), unit, unit, 0, 0.2);
-        for(var c = 1; c < tilesWide; c++) {
-            drawSprite('backer', 1, 2, x+(c*unit), y+(2*unit), unit, unit, 0, 0.2);
-        }
-        drawSprite('backer', 2, 2, x+(tilesWide*unit), y+(2*unit), unit, unit, 0, 0.2);
+        if (type == 'text') {
+            drawSprite('backer', 0, 2, x, y+(2*unit), unit, unit, 0, 0.2);
+            for(var c = 1; c < tilesWide; c++) {
+                drawSprite('backer', 1, 2, x+(c*unit), y+(2*unit), unit, unit, 0, 0.2);
+            }
+            drawSprite('backer', 2, 2, x+(tilesWide*unit), y+(2*unit), unit, unit, 0, 0.2);
 
-        // draw input here
-        drawText(x+unit, y+(2*unit), unit/2, val(), 0.15, fractionOfSecond < 0.5);
-
-        drawSprite('backer', 0, 3, x, y+(3*unit), unit, unit, 0, 0.2);
-        for(var c = 1; c < tilesWide; c++) {
-            drawSprite('backer', 1, 3, x+(c*unit), y+(3*unit), unit, unit, 0, 0.2);
+            // draw input here
+            drawText(x+unit, y+(2*unit), unit/2, cb(), 0.15, fractionOfSecond < 0.5);
         }
-        drawSprite('backer', 2, 3, x+(tilesWide*unit), y+(3*unit), unit, unit, 0, 0.2);
+
+        if (type == 'button') {
+            drawSprite('backer', 0, 3, x, y+(2*unit), unit, unit, 0, 0.2);
+            for(var c = 1; c < tilesWide; c++) {
+                drawSprite('backer', 1, 3, x+(c*unit), y+(2*unit), unit, unit, 0, 0.2);
+            }
+            drawSprite('backer', 2, 3, x+(tilesWide*unit), y+(2*unit), unit, unit, 0, 0.2);
+
+            drawText(x+unit, y+(2*unit), unit/2, 'START', 0.15);
+
+            cb(x+(unit/2), y+(1.5*unit), tilesWide*unit, unit);
+        }
+
+        drawSprite('backer', 0, 4, x, y+(3*unit), unit, unit, 0, 0.2);
+        for(var c = 1; c < tilesWide; c++) {
+            drawSprite('backer', 1, 4, x+(c*unit), y+(3*unit), unit, unit, 0, 0.2);
+        }
+        drawSprite('backer', 2, 4, x+(tilesWide*unit), y+(3*unit), unit, unit, 0, 0.2);
     }
 
     function computeTilePositions(tiles) {
@@ -817,15 +832,31 @@ function render(timestamp) {
     }
 
     if (showNamebox) {
-        drawPrompt(canvas.width/4, canvas.height/3, canvas.width/2, canvas.height/3, 'Please enter your name', () => {
+        drawPrompt(canvas.width/4, canvas.height/3, canvas.width/2, canvas.height/3, 'Please enter your name', 'text', () => {
             return playerName;
         });
     }
 
     if (showJoinUI) {
-        drawPrompt(canvas.width/4, canvas.height/3, canvas.width/2, canvas.height/3, 'Please enter a game code', () => {
+        drawPrompt(canvas.width/4, canvas.height/3, canvas.width/2, canvas.height/3, 'Please enter a game code', 'text', () => {
             return joinCode;
         });
+    }
+
+    if (showHostUI) {
+        drawPrompt(canvas.width/4, canvas.height/3, canvas.width/2, canvas.height/3, 'Click to start', 'button', (x, y, w, h) => {
+            if (click && click.x > x && click.x < (x+w) && click.y > y && click.y < (y+h)) {
+                sendMessage({
+                    type: 'start'
+                });
+                showHostUI = false;
+            }
+        }, click);
+    }
+
+    if (lobbyName) {
+        // put in top right
+        drawText(canvas.width - (lobbyName.length * 11), 11, 11, lobbyName, 0.2);
     }
 
     drawScene(gl, programInfo, calls);
@@ -863,6 +894,7 @@ var graphics = [
 var showChatbox = false;
 var showNamebox = false;
 var showJoinUI = false;
+var showHostUI = false;
 var chat = '';
 var playerName = '';
 var joinCode = '';
