@@ -6,6 +6,7 @@ const wss = new ws.Server({ port: 7777 });
 const ALPHANUMERIC = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 var clients = {};
+var games = {};
 
 function parseMessage(m, client) {
     var message = JSON.parse(m);
@@ -30,6 +31,16 @@ function parseMessage(m, client) {
                 }
             }
             client.send({ type: 'cookie', data: { cookie: cookie }});
+            if (!client.player) {
+                client.send({ type: 'nameplease' });
+            } else {
+                console.log(client.player);
+                if (client.player.game) {
+                    client.player.state();
+                } else {
+                    client.send({ type: 'codeplease' });
+                }
+            }
             break;
         case 'chat': // chat
             if (client.player) {
@@ -38,6 +49,16 @@ function parseMessage(m, client) {
             break;
         case 'name':    // client sets their name
             client.name = message.data;
+            break;
+        case 'join':
+            // either enter them into a game or start a new game
+            var gameCode = message.data;
+            var newPlayer = new game.Player(client);
+            if (games[gameCode]) {
+                games[gameCode].addPlayer(newPlayer);
+            } else {
+                games[gameCode] = new game.Game(gameCode, newPlayer);
+            }
             break;
         case 'command':
             if (client.player) {
@@ -59,19 +80,3 @@ wss.on('connection', function connection(ws) {
         }
     });
 });
-
-
-//broadcast({ type: 'chat', data: messages });
-
-
-    //     var worldStateMessage = {
-    //         type: 'state',
-    //         data: {
-    //             chunks: Object.values(chunksForClient),
-    //             pieces: piecesForClient,
-    //             objects: objectsForClient,
-    //             tick: currentTick
-    //         }
-    //     }
-    //     send(worldStateMessage, client)
-    // }

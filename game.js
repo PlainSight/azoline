@@ -6,15 +6,36 @@ var COLOURS = [
 	['orange', 'red', 'black', 'teal', 'blue']
 ];
 
-function Game(host) {
-	this.id = [0, 0, 0, 0].map(() => { return ALPHANUMERIC[Math.floor(Math.random()*ALPHANUMERIC.length)] }).join('');
+const ALPHANUMERIC = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+function Game(code, host) {
+	this.id = code;
 	this.players = [host];
+	host.isAdmin = true;
 	this.factories = [];
 	this.middle = [];
 	this.turn = 0;
 
 	this.addPlayer = function(player) {
 		this.players.push(player);
+
+		this.broadcastPlayerlist();
+		player.sendId();
+	}
+
+	this.broadcastPlayerlist = function() {
+		this.broadcast({
+			type: 'playerlist',
+			data: {
+				players: this.players.map(p => {
+					return {
+						id: p.id,
+						name: p.client.name,
+						score: p.score
+					};
+				})
+			} 
+		});
 	}
 
 	this.start = function() {
@@ -26,12 +47,16 @@ function Game(host) {
 	}
 
 	this.broadcast = function(message) {
-		this.player.forEach(p => {
+		this.players.forEach(p => {
 			p.send(message);
 		});
 	}
 
-	this.next() = function() {
+	this.broadcaststate = function() {
+		this.broadcastPlayerlist();
+	}
+
+	this.next = function() {
 		this.turn++;
 		this.turn = this.turn % this.players.length;
 		this.players[this.turn].isTurn = true;
@@ -39,19 +64,20 @@ function Game(host) {
 
 	this.broadcast({
 		type: 'lobby',
-		data: {
-			lobbyName: this.id,
-			players: this.players.map(p => p.client.name)
-		}
-	})
+		data: this.id
+	});
+	this.broadcastPlayerlist();
+	host.sendId();
 
 	return this;
 }
 
 function Player(client) {
+	this.id = [0, 0, 0, 0, 0, 0, 0, 0].map(() => { return ALPHANUMERIC[Math.floor(Math.random()*ALPHANUMERIC.length)] }).join('');
 	this.game = null;
 	this.client = client;
 	this.isTurn = false;
+	client.player = this;
 
 	this.pattern = [
 		{ colour: '', count: 0, capacity: 1 },
@@ -91,8 +117,25 @@ function Player(client) {
 		}
 	}
 
+	this.startGame = function() {
+		if (this.isAdmin) {
+			this.game.start();
+		}
+	}
+
+	this.state = function() {
+		this.game.broadcaststate();
+	}
+
+	this.sendId = function() {
+		this.client.send({
+			type: 'playerid',
+			data: this.id
+		})
+	}
+
 	this.send = function(message) {
-		this.connection.send(JSON.stringify(message))
+		this.client.send(message)
 	}
 
 	this.validatePlacement = function(colour, y) {

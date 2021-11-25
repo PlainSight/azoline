@@ -42,11 +42,24 @@ function processMessage(m) {
         case 'cookie':
             localStorage.setItem('azoline0.1', message.data.cookie);
             break;
+        case 'nameplease':
+            showNamebox = true;
+            break;
+        case 'codeplease':
+            showNamebox = true;
+            break;
         case 'lobby':
             lobbyName = message.data.lobbyName;
             break;
         case 'state':
             message.data;
+            break;
+        case 'playerlist':
+            console.log('here', message.data);
+            boards = message.data.players.map(p => NewBoard(p.id, p.name, p.score));
+            break;
+        case 'playerid':
+            playerId = message.data;
             break;
         case 'start':
             playerId = message.data.playerId;
@@ -336,6 +349,10 @@ var COLOURS = [
     [3, 4, 0, 1, 2]
 ];
 
+var COLORMAP = [
+    'black', 'teal', 'blue', 'orange', 'red'
+];
+
 function NewBoard(id, name, score) {
     return {
         id: id,
@@ -359,9 +376,9 @@ function NewBoard(id, name, score) {
     }
 }
 
-var factories = [{},{},{},{},{},{},{}];
-var boards = [NewBoard(1, 'doug'),NewBoard(2, 'fred'),NewBoard(3, 'nancy'),NewBoard(4, 'ponce'),NewBoard(5, 'lily')];
-var tiles = [{ colour: 2, position: factories[0] }, { colour: 4, position: factories[0] }, { colour: 2, position: factories[0] }, { colour: 3, position: factories[0] }];
+var factories = [];
+var boards = [];
+var tiles = []; // { colour: 2, position: factories[0] }, { colour: 4, position: factories[0] }, { colour: 2, position: factories[0] }, { colour: 3, position: factories[0] }
 var middle = {};
 
 function render(timestamp) {
@@ -383,7 +400,7 @@ function render(timestamp) {
         draw(sheet, sx, sy, dim, dim, dx, dy, w, h, angle, z, color);
     }
 
-    function drawText(x, y, w, text, drawCursor) {
+    function drawText(x, y, w, text, z, drawCursor) {
         var position = 0;
         for(var i = 0; i < text.length; i++) {
             var charCode = text.charCodeAt(i);
@@ -422,13 +439,48 @@ function render(timestamp) {
                 valid = true;
             }
             if (valid) {
-                drawSprite('font', spriteX, spriteY, x+(position*w), y, w, w, 0, 0.35);
+                drawSprite('font', spriteX, spriteY, x+(position*w), y, w, w, 0, z || 0.35);
             }
             position++;
         }
         if (drawCursor) {
-            drawSprite('font', 4, 5, x+((position)*w), y, w, w, 0, 0.35);
+            drawSprite('font', 4, 5, x+((position)*w), y, w, w, 0, z || 0.35);
         }
+    }
+
+    function drawPrompt(x, y, width, height, text, val) {
+        var unit = height / 4;
+        var tilesWide = Math.ceil(width/unit);
+        
+        drawSprite('backer', 0, 0, x, y, unit, unit, 0, 0.2);
+        for(var c = 1; c < tilesWide; c++) {
+            drawSprite('backer', 1, 0, x+(c*unit), y, unit, unit, 0, 0.2);
+        }
+        drawSprite('backer', 2, 0, x+(tilesWide*unit), y, unit, unit, 0, 0.2);
+
+        drawSprite('backer', 0, 1, x, y+unit, unit, unit, 0, 0.2);
+        for(var c = 1; c < tilesWide; c++) {
+            drawSprite('backer', 1, 1, x+(c*unit), y+unit, unit, unit, 0, 0.2);
+        }
+        drawSprite('backer', 2, 1, x+(tilesWide*unit), y+unit, unit, unit, 0, 0.2);
+
+        // draw text here
+        drawText(x+unit, y+unit, unit/2, text, 0.15, false);
+
+        drawSprite('backer', 0, 2, x, y+(2*unit), unit, unit, 0, 0.2);
+        for(var c = 1; c < tilesWide; c++) {
+            drawSprite('backer', 1, 2, x+(c*unit), y+(2*unit), unit, unit, 0, 0.2);
+        }
+        drawSprite('backer', 2, 2, x+(tilesWide*unit), y+(2*unit), unit, unit, 0, 0.2);
+
+        // draw input here
+        drawText(x+unit, y+(2*unit), unit/2, val(), 0.15, fractionOfSecond < 0.5);
+
+        drawSprite('backer', 0, 3, x, y+(3*unit), unit, unit, 0, 0.2);
+        for(var c = 1; c < tilesWide; c++) {
+            drawSprite('backer', 1, 3, x+(c*unit), y+(3*unit), unit, unit, 0, 0.2);
+        }
+        drawSprite('backer', 2, 3, x+(tilesWide*unit), y+(3*unit), unit, unit, 0, 0.2);
     }
 
     function computeTilePositions(tiles) {
@@ -625,8 +677,8 @@ function render(timestamp) {
             drawSprite('highlight', 0, 0, f.display.x, f.display.y, f.display.w, f.display.w, 0, 0.55, 'red');
         });
         // draw text
-        drawText(b.display.name.x, b.display.name.y, b.display.name.w, b.name, false);
-        drawText(b.display.score.x, b.display.score.y, b.display.score.w, ''+b.score, false);
+        drawText(b.display.name.x, b.display.name.y, b.display.name.w, b.name, 0.3, false);
+        drawText(b.display.score.x, b.display.score.y, b.display.score.w, ''+b.score, 0.3, false);
     });
 
 
@@ -634,17 +686,110 @@ function render(timestamp) {
     var highlightedPosition = null;
     var highlightedColour = null;
     tiles.forEach(t => {
-        if (Math.hypot(t.display.x - cursorX, t.display.y - cursorY) < (t.display.w*0.7)) {
-            highlightedPosition = t.position;
-            highlightedColour = t.colour;
+        if (tileClicked) {
+            highlightedPosition = tileClicked.position;
+            highlightedColour = tileClicked.colour;
+        } else {
+            if (Math.hypot(t.display.x - cursorX, t.display.y - cursorY) < (t.display.w*0.7)) {
+                highlightedPosition = t.position;
+                highlightedColour = t.colour;
+            }
         }
-    })
+    });
+
+    var playerBoard = boards.filter(b => b.id == playerId)[0];
+    if (tileClicked) {
+        playerBoard.pattern.forEach(p => {
+            if (p.filter(pt => {
+                return Math.hypot(pt.display.x - cursorX, pt.display.y - cursorY) < (pt.display.w*0.7);
+            }).length > 0) {
+                p.forEach(pt => {
+                    drawSprite('highlight', 0, 0, pt.display.x, pt.display.y, pt.display.w, pt.display.w, 0, 0.45, 'green');
+                });
+            }
+        });
+
+        if(playerBoard.floor.filter(f => {
+            return Math.hypot(f.display.x - cursorX, f.display.y - cursorY) < (f.display.w*0.7);
+            }).length > 0) 
+            {
+                playerBoard.floor.forEach(f => {
+                    drawSprite('highlight', 0, 0, f.display.x, f.display.y, f.display.w, f.display.w, 0, 0.45, 'green');
+                });
+        }
+    }
+
 
     // process most recent click
     var click = clicks.pop();
     clicks = [];
     if(click) {
-        //tiles.forEach(t => )
+        // check where click is
+
+        var sentCommand = false;
+        if (tileClicked) {
+            // check for destination click, if so then send command otherwise
+            var playerBoard = boards.filter(b => b.id == playerId)[0];
+            playerBoard.pattern.forEach((p, pi) => {
+                p.forEach(pt => {
+                    if(Math.hypot(pt.display.x - click.x, pt.display.y - click.y) < (pt.display.w*0.7)) {
+                        // send a command
+                        // determine factory
+                        var factory = -1;
+                        for(var i = 0; i < factories.length; i++) {
+                            if (factories[i] == tileClicked.position) {
+                                factory = i;
+                            }
+                        }
+
+                        sendMessage({
+                            type: 'command',
+                            data: {
+                                colour: COLORMAP[tileClicked.colour],
+                                zone: factory,
+                                destination: pi
+                            }
+                        });
+                        sentCommand = true;
+                    }
+                })
+            });
+
+            if (!sentCommand) {
+                // check if floor row
+                if(playerBoard.floor.filter(f => {
+                    return Math.hypot(f.display.x - click.x, f.display.y - click.y) < (f.display.w*0.7);
+                    }).length > 0) {
+                        // send a command
+                        // determine factory
+                        var factory = -1;
+                        for(var i = 0; i < factories.length; i++) {
+                            if (factories[i] == tileClicked.position) {
+                                factory = i;
+                            }
+                        }
+
+                        sendMessage({
+                            type: 'command',
+                            data: {
+                                colour: COLORMAP[tileClicked.colour],
+                                zone: factory,
+                                destination: -1
+                            }
+                        });
+                        sentCommand = true;
+                    }
+            }
+        }
+
+        if (!sentCommand) {
+            tileClicked = null;
+            tiles.forEach(t => {
+                if(Math.hypot(t.display.x - click.x, t.display.y - click.y) < (t.display.w*0.7)) {
+                    tileClicked = t;
+                }
+            });
+        }
     }
 
     tiles.forEach(t => {
@@ -658,34 +803,29 @@ function render(timestamp) {
     // draw chat
     chatlog = chatlog.filter(c => c.age > (Date.now() - 15000));
 
-    chatlog = [
-        { message: 'a', age: Date.now() },
-        { message: 'b', age: Date.now() },
-        { message: 'c', age: Date.now() },
-        { message: 'd', age: Date.now() },
-        { message: 'e', age: Date.now() },
-        { message: 'f', age: Date.now() },
-        { message: 'g', age: Date.now() },
-        { message: 'h', age: Date.now() },
-        { message: 'i', age: Date.now() },
-        { message: 'j', age: Date.now() },
-        { message: 'k', age: Date.now() },
-        { message: 'l', age: Date.now() },
-        { message: 'm', age: Date.now() },
-        { message: 'n', age: Date.now() },
-];
-
     var top = canvas.height/2;
     var unit = canvas.height/20;
     var j = 0;
     for (var i = Math.max(0, chatlog.length - 8); i < chatlog.length; i++) {
-        drawText(unit, top + unit + (j*unit), unit*0.8, chatlog[i].message);
+        drawText(unit, top + unit + (j*unit), unit*0.8, chatlog[i].message, 0.3);
         j++;
     }
 
     if (showChatbox) {
         console.log(fractionOfSecond);
-        drawText(unit, top + (9*unit), unit*0.8, ':' + chat, fractionOfSecond < 0.5);
+        drawText(unit, top + (9*unit), unit*0.8, ':' + chat, 0.3, fractionOfSecond < 0.5);
+    }
+
+    if (showNamebox) {
+        drawPrompt(canvas.width/4, canvas.height/3, canvas.width/2, canvas.height/3, 'Please enter your name', () => {
+            return playerName;
+        });
+    }
+
+    if (showJoinUI) {
+        drawPrompt(canvas.width/4, canvas.height/3, canvas.width/2, canvas.height/3, 'Please enter a game code', () => {
+            return joinCode;
+        });
     }
 
     drawScene(gl, programInfo, calls);
@@ -705,13 +845,15 @@ var cursorX = 256;
 var cursorY = 256;
 var clicks = [];
 
+var tileClicked = null;
 
 var graphics = [
     { n : 'tiles.png', d: 88 },
     { n : 'places.png', d: 88 },
     { n: 'factory.png', d: 200 },
     { n: 'highlight.png', d: 88, noblur: true },
-    { n: 'font.png', d: 11, noblur: true }
+    { n: 'font.png', d: 11, noblur: true },
+    { n: 'backer.png', d: 11, noblur: true }
 ].reduce((a, c) => {
     var name = c.n.split('.')[0];
     a[name] = loadTexture(c.n, c.d, c.noblur);
@@ -719,7 +861,11 @@ var graphics = [
 }, {});
 
 var showChatbox = false;
+var showNamebox = false;
+var showJoinUI = false;
 var chat = '';
+var playerName = '';
+var joinCode = '';
 
 function updateCursorPosition(e) {
     cursorX = e.x;
@@ -733,34 +879,36 @@ function mouseDown(e) {
     }
 }
 
+function touchDown(e) {
+    clicks.push({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+}
+
 function keyDown(e) {
-    if(e.keyCode >= 48 && e.keyCode <= 57) {
-        var controlGroup = e.keyCode-48;
-        if (e.ctrlKey) {
-            controlGroups[controlGroup] = selection;
-        } else {
-            selection = controlGroups[controlGroup] || [];
-        }
-    }
-    if (e.key == 'Enter') {
+    if (e.key == 'Enter' && !showNamebox && !showJoinUI) {
         showChatbox = !showChatbox;
         if (chat) {
-            if (chat.startsWith('/name ')) {
-                var parts = chat.split(' ');
-                if (parts.length == 2) {
-                    sendMessage({
-                        type: 'name',
-                        data: parts[1].trim()
-                    });
-                }
-            } else {
-                sendMessage({
-                    type: 'chat',
-                    data: chat
-                });
-            }
+            sendMessage({
+                type: 'chat',
+                data: chat
+            });
             chat = '';
         }
+    }
+    if (e.key == 'Enter' && showNamebox && playerName != '') {
+        sendMessage({
+            type: 'name',
+            data: playerName
+        });
+        showNamebox = false;
+        showJoinUI = true;
+    }
+    if (e.key == 'Enter' && showJoinUI && joinCode != '') {
+        sendMessage({
+            type: 'join',
+            data: joinCode
+        });
+        joinCode = false;
+        showJoinUI = false;
     }
     if (showChatbox) {
         if (e.key == 'Backspace') {
@@ -773,11 +921,34 @@ function keyDown(e) {
             chat += e.key;
         }
     }
+    if (showNamebox) {
+        if (e.key == 'Backspace') {
+            playerName = playerName.substring(0, playerName.length - 1);
+        }
+        //num0a-z = 97-122
+        //A-Z = 65-90
+        //0-9 = 48-57
+        if((e.keyCode >= 96 && e.keyCode <= 122) || (e.keyCode >= 65 && e.keyCode <= 90) || (e.keyCode >= 48 && e.keyCode <= 57) || e.key == '/' || e.key == ' ') {
+            playerName += e.key;
+        }
+    }
+    if (showJoinUI) {
+        if (e.key == 'Backspace') {
+            joinCode = joinCode.substring(0, joinCode.length - 1);
+        }
+        //num0a-z = 97-122
+        //A-Z = 65-90
+        //0-9 = 48-57
+        if((e.keyCode >= 96 && e.keyCode <= 122) || (e.keyCode >= 65 && e.keyCode <= 90) || (e.keyCode >= 48 && e.keyCode <= 57) || e.key == '/' || e.key == ' ') {
+            joinCode += e.key;
+        }
+    }
     return false;
 }
 
 document.addEventListener('mousemove', updateCursorPosition, false);
 document.addEventListener('mousedown', mouseDown, false);
+document.addEventListener('touchstart', touchDown, false);
 document.addEventListener('keydown', keyDown, false);
 
 function beziern(arr, p) {
