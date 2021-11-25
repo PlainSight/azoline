@@ -43,9 +43,13 @@ function Game(code, host) {
 	this.start = function() {
 		this.broadcast({
 			type: 'text',
-			data: 'The game is about to begin!'
+			data: 'The game is beginning!'
 		});
 		this.turn = Math.floor(Math.random() * this.players.length);
+		this.chat('It\'s ' + this.players[this.turn].client.name + '\'s turn!');
+		this.players[this.turn].send({
+			type: 'turn'
+		})
 	}
 
 	this.chat = function(m) {

@@ -52,6 +52,9 @@ function processMessage(m) {
         case 'host':
             showHostUI = true;
             break;
+        case 'turn':
+            turn  = true;
+            break;
         case 'state':
             message.data;
             break;
@@ -341,6 +344,7 @@ function drawScene(gl, programInfo, calls) {
 
 var lastTimestamp = 0;
 var playerId = 2;
+var turn = false;
 
 var COLOURS = [
     [2, 3, 4, 0, 1],
