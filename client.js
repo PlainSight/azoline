@@ -44,7 +44,8 @@ function processMessage(m) {
             showNamebox = true;
             break;
         case 'codeplease':
-            showNamebox = true;
+            joinCode = '';
+            showJoinUI = true;
             break;
         case 'lobby':
             lobbyName = message.data;
@@ -53,10 +54,40 @@ function processMessage(m) {
             showHostUI = true;
             break;
         case 'turn':
-            turn  = true;
+            this.boards.forEach(b => {
+                b.turn = (b.id == message.data);
+            });
             break;
-        case 'state':
-            message.data;
+        case 'factories':
+            for(var i = 0; i < message.data.count; i++) {
+                factories.push({});
+            };
+            break;
+        case 'tiles': 
+            var newTiles = [];
+            for (var i = 0; i < message.data.tiles.length; i++) {
+                var tileUpdate = message.data.tiles[i];
+                var existingTile = tiles.filter(t => t.id == tileUpdate.id);
+
+                if (!existingTile) {
+                    
+                } else {
+                    if (tileUpdate.position.type != existingTile.position.type) {
+                        switch (tileUpdate.position.type) {
+                            case 'board':
+                                position
+                            case 'factory':
+        
+                            case 'middle':
+        
+                            case 'lid':
+        
+                            case 'bag':
+        
+                        }
+                    }
+                }
+            }
             break;
         case 'playerlist':
             console.log('here', message.data);
@@ -64,17 +95,6 @@ function processMessage(m) {
             break;
         case 'playerid':
             playerId = message.data;
-            break;
-        case 'start':
-            playerId = message.data.playerId;
-            boards = message.data.players.map(p => NewBoard(p.id, p.name, p.score));
-            factories = message.data.factories;
-            tiles = message.data.tiles.map(t => {
-                return {
-                    position: factories[t.factoryid],
-                    colour: t.colour
-                };
-            });
             break;
     }
 }
@@ -386,6 +406,7 @@ var boards = [];
 var tiles = []; // { colour: 2, position: factories[0] }, { colour: 4, position: factories[0] }, { colour: 2, position: factories[0] }, { colour: 3, position: factories[0] }
 var middle = {};
 
+
 function render(timestamp) {
     var delta = timestamp - lastTimestamp;
     lastTimestamp = timestamp;
@@ -455,6 +476,7 @@ function render(timestamp) {
 
     function drawPrompt(x, y, width, height, text, type, cb) {
         var unit = height / 4;
+        var textunit = width / text.length;
         var tilesWide = Math.ceil(width/unit);
         
         drawSprite('backer', 0, 0, x, y, unit, unit, 0, 0.2);
@@ -470,7 +492,7 @@ function render(timestamp) {
         drawSprite('backer', 2, 1, x+(tilesWide*unit), y+unit, unit, unit, 0, 0.2);
 
         // draw text here
-        drawText(x+unit, y+unit, unit/2, text, 0.15, false);
+        drawText(x+unit, y+unit, textunit, text, 0.15, false);
 
         if (type == 'text') {
             drawSprite('backer', 0, 2, x, y+(2*unit), unit, unit, 0, 0.2);
@@ -480,7 +502,7 @@ function render(timestamp) {
             drawSprite('backer', 2, 2, x+(tilesWide*unit), y+(2*unit), unit, unit, 0, 0.2);
 
             // draw input here
-            drawText(x+unit, y+(2*unit), unit/2, cb(), 0.15, fractionOfSecond < 0.5);
+            drawText(x+unit, y+(2*unit), textunit, cb(), 0.15, fractionOfSecond < 0.5);
         }
 
         if (type == 'button') {
@@ -490,7 +512,7 @@ function render(timestamp) {
             }
             drawSprite('backer', 2, 3, x+(tilesWide*unit), y+(2*unit), unit, unit, 0, 0.2);
 
-            drawText(x+unit, y+(2*unit), unit/2, 'START', 0.15);
+            drawText(x+unit, y+(2*unit), textunit, 'START', 0.15);
 
             cb(x+(unit/2), y+(1.5*unit), tilesWide*unit, unit);
         }
@@ -565,7 +587,7 @@ function render(timestamp) {
             name: {
                 x: left,
                 y: top,
-                w: unit*0.8
+                w: unit*0.5
             },
             score: {
                 x: left + width - 3*unit,
@@ -589,7 +611,9 @@ function render(timestamp) {
 
         var maxRadiusOfFactory = (width*Math.PI) / ((2*numberOfFactories) + (2*Math.PI));
         var distanceFromCenter = (width/2) - maxRadiusOfFactory;
-        var center = { x: left+(width/2), y: top+(width/2) };
+        var center = { x: left+(width/2), y: top+(width/2), w: distanceFromCenter-maxRadiusOfFactory };
+
+        middle.display = { x: center.x, y: center.y, w: center.w };
 
         var factoryAngle = 0;
         for(var f = 0; f < numberOfFactories; f++) {
@@ -696,7 +720,7 @@ function render(timestamp) {
             drawSprite('highlight', 0, 0, f.display.x, f.display.y, f.display.w, f.display.w, 0, 0.55, 'red');
         });
         // draw text
-        drawText(b.display.name.x, b.display.name.y, b.display.name.w, b.name, 0.3, false);
+        drawText(b.display.name.x, b.display.name.y, b.display.name.w, b.turn ? ':' + b.name + ':' : b.name, 0.3, false);
         drawText(b.display.score.x, b.display.score.y, b.display.score.w, ''+b.score, 0.3, false);
     });
 

@@ -59,7 +59,10 @@ function parseMessage(m, client) {
             var gameCode = message.data;
             var newPlayer = new game.Player(client);
             if (games[gameCode]) {
-                games[gameCode].addPlayer(newPlayer);
+                if (!games[gameCode].addPlayer(newPlayer)) {
+                    client.send({ type: 'text', data: 'Game already in progress please enter another code.' });
+                    client.send({ type: 'codeplease' });
+                }
             } else {
                 games[gameCode] = new game.Game(gameCode, newPlayer);
             }
