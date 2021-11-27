@@ -1,4 +1,8 @@
-let socket = new WebSocket("ws://localhost:7777");
+var webaddress = 'ws://localhost:7799';
+//webaddress = 'wss://plainsightindustries/azolinesocket';
+var resourceaddress = 'http://localhost:8080/';
+//resourceaddress = 'http://plainsightindustries.com/azul/';
+let socket = new WebSocket(webaddress);
 
 socket.onopen = function() {
     sendMessage({
@@ -59,9 +63,12 @@ function processMessage(m) {
             });
             break;
         case 'factories':
-            for(var i = 0; i < message.data.count; i++) {
-                factories.push({});
-            };
+            if (message.data.count != factories.length) {
+                factories = [];
+                for(var i = 0; i < message.data.count; i++) {
+                    factories.push({});
+                };
+            }
             break;
         case 'tiles': 
             var newTiles = [];
@@ -568,35 +575,33 @@ function render(timestamp) {
             }
         }
 
-        tiles.forEach((t, i) => {
-            if (t.oldposition && t.startTime && t.r1 && t.r2) {
-                // lerp between origin and destination
-                var lerp = Math.min(1, (now - t.startTime) / 1000);
-
-                var from = extractDisplayValue(t.oldposition);
-                var to = extractDisplayValue(t.position);
-
-                if (lerp == 1 || (from.x == to.x && from.y == to.y)) {
-                    t.oldposition = null;
-                    t.startTime = null;
-                    t.r1 = null;
-                    t.r2 = null;
-
-                    t.display = to;
-                } else {
-                    if (t.colour == 5) {
-                        console.log(lerp, from, to);
+        tiles.forEach(t => {
+            if (t.position.display != null) {
+                if (t.oldposition && t.oldposition.display && t.startTime && t.r1 && t.r2) {
+                    // lerp between origin and destination
+                    var lerp = Math.min(1, (now - t.startTime) / 1000);
+    
+                    var from = extractDisplayValue(t.oldposition);
+                    var to = extractDisplayValue(t.position);
+    
+                    if (lerp == 1 || (from.x == to.x && from.y == to.y)) {
+                        t.oldposition = null;
+                        t.startTime = null;
+                        t.r1 = null;
+                        t.r2 = null;
+    
+                        t.display = to;
+                    } else {
+                        var xy = bezier({ from: from, to: to, r1: t.r1, r2: t.r2 }, lerp);
+        
+                        var size = (from.w * (1-lerp)) + (to.w * (lerp));
+        
+                        t.display = { x: xy.x, y: xy.y, a: lerp*Math.PI*4, w: size }
                     }
-    
-                    var xy = bezier({ from: from, to: to, r1: t.r1, r2: t.r2 }, lerp);
-    
-                    var size = (from.w * (1-lerp)) + (to.w * (lerp));
-    
-                    t.display = { x: xy.x, y: xy.y, a: lerp*Math.PI*4, w: size }
-                }
-            } else {
-                if (t.position) {
-                    t.display = extractDisplayValue(t.position);
+                } else {
+                    if (t.position) {
+                        t.display = extractDisplayValue(t.position);
+                    }
                 }
             }
         });
@@ -818,7 +823,7 @@ function render(timestamp) {
         });
         // draw text
         drawText(b.display.name.x, b.display.name.y, b.display.name.w, b.turn ? ':' + b.name + ':' : b.name, 0.3, false);
-        drawText(b.display.score.x, b.display.score.y, b.display.score.w, ''+b.score, 0.3, false);
+        drawText(b.display.score.x, b.display.score.y, b.display.score.w, b.score < 0 ? 'n'+b.score: ''+b.score, 0.3, false);
     });
 
 
@@ -826,7 +831,7 @@ function render(timestamp) {
     var highlightedPosition = null;
     var highlightedColour = null;
     tiles.forEach(t => {
-        if (t.display) {
+        if (t.display && (factories.includes(t.position) || t.position == middle) && t.colour != 5) {
             if (tileClicked) {
                 highlightedPosition = tileClicked.position;
                 highlightedColour = tileClicked.colour;
@@ -893,6 +898,7 @@ function render(timestamp) {
                             }
                         });
                         sentCommand = true;
+                        tileClicked = false;
                     }
                 })
             });
@@ -920,6 +926,7 @@ function render(timestamp) {
                             }
                         });
                         sentCommand = true;
+                        tileClicked = false;
                     }
             }
         }
@@ -927,8 +934,10 @@ function render(timestamp) {
         if (!sentCommand) {
             tileClicked = null;
             tiles.forEach(t => {
-                if(Math.hypot(t.display.x - click.x, t.display.y - click.y) < (t.display.w*0.7)) {
-                    tileClicked = t;
+                if ((factories.includes(t.position) || t.position == middle) && t.colour != 5) {
+                    if(Math.hypot(t.display.x - click.x, t.display.y - click.y) < (t.display.w*0.7)) {
+                        tileClicked = t;
+                    }
                 }
             });
         }
@@ -1169,3 +1178,9 @@ function bezier(transition, p) {
          { x: x1, y: y1 }], 
          p);
 }
+
+setInterval(() => {
+    sendMessage({
+        type: 'ping'
+    });
+}, 20000);

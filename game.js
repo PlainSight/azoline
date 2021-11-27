@@ -71,7 +71,6 @@ function Game(code, host) {
 	}
 
 	this.moveTile = function(tile, type, destination) {
-		console.log(tile, type, destination);
 		// remove tile from current
 		switch(tile.position.type) {
 			case 'lid':
@@ -178,17 +177,31 @@ function Game(code, host) {
 		}
 	}
 
-	this.roundStart = function() {
-		this.bag = this.bag.sort((a, b) => Math.random()-0.5);
-
-		for(var i = 0; i < (this.factories.length * 4) && this.bag.length > 0; i++) {
-			this.moveTile(this.bag[i], 'factory', { factory: Math.floor(i/4) });
-		}
-
+	this.gameStart = function() {
+		this.populateFactories();
 		this.broadcastTiles();
-
 		this.turn = Math.floor(Math.random() * this.players.length);
 		this.players[this.turn].isTurn = true;
+	}
+
+	this.populateFactories = function() {
+		this.bag = this.bag.sort((a, b) => Math.random()-0.5);
+
+		for(var i = 0; i < (this.factories.length * 4) ; i++) {
+			if (this.bag.length == 0) {
+				this.replenishBag();
+			}
+			if (this.bag.length == 0) {
+				return;
+			}
+			this.moveTile(this.bag.pop(), 'factory', { factory: Math.floor(i/4) });
+		}
+	}
+
+	this.replenishBag = function() {
+		this.bag = this.lid;
+		this.bag = this.bag.sort((a, b) => Math.random()-0.5);
+		this.lid = [];
 	}
 
 	this.start = function() {
@@ -234,7 +247,7 @@ function Game(code, host) {
 			}
 		}
 
-		this.roundStart();
+		this.gameStart();
 
 		this.chat('It\'s ' + this.players[this.turn].client.name + '\'s turn!');
 		this.broadcastTurn();
@@ -313,25 +326,49 @@ function Game(code, host) {
 		this.broadcastPlayerlist();
 		this.broadcastFactories();
 		this.broadcastTiles();
+		this.broadcastTurn();
 	}
 
 	this.next = function() {
 		// check if the round is ending.
-		console.log('ROUND CHECK', this.factories.filter(f => f.length > 0).length > 0, this.middle.length > 0);
-		console.log(this.factories);
 		if (this.factories.filter(f => f.length > 0).length > 0 || this.middle.length > 0) {
+			// keep playing
 			this.turn++;
 			this.turn = this.turn % this.players.length;
 			this.players[this.turn].isTurn = true;
-			this.broadcastTiles();
 			this.broadcastTurn();
+			this.broadcastTiles();
 		} else {
-			this.players.forEach(p => {
-				p.build();
+			// new round
+			var roundResults = this.players.map(p => {
+				return {
+					res: p.build(),
+					player: p
+				};
 			});
 
-			this.broadcastPlayerlist();
-			this.broadcastTiles();
+			var gameEnding = roundResults.filter(rr => rr.res.endingGame).length > 0;
+
+			var nextPlayer = roundResults.filter(rr => rr.res.startsNext == true)[0].player;
+			this.turn = this.players.indexOf(nextPlayer);
+
+			if (!gameEnding) {
+				this.populateFactories();
+				this.broadcastPlayerlist();
+				this.players[this.turn].isTurn = true;
+				this.broadcastTurn();
+				this.broadcastTiles();
+			} else {
+				this.players.forEach(p => {
+					p.calculateBonuses();
+				});
+				var bestScore = Math.max(...this.players.map(p => p.score));
+				var bestPlayer = this.players.filter(p => p.score == bestScore)[0];
+				this.broadcastPlayerlist();
+				this.broadcastTiles();
+				this.chat(bestPlayer.client.name + ' WINS WITH ' + bestScore + ' POINTS!');
+			}
+			
 		}
 	}
 
@@ -377,11 +414,12 @@ function Player(client) {
 	}
 
 	this.chat = function(message) {
+		console.log('chat', this.client.name + ': ' + message);
 		this.game.chat(this.client.name + ': ' + message);
 	}
 
 	this.command = function(data) {
-		console.log('command', data, this.isTurn);
+		console.log('command', this.player.client.name, data, this.isTurn);
 		if (this.isTurn) {
 			var colour = NAMETOCOLOURID[data.colour];
 			if(this.pick(colour, data.zone, data.destination)) {
@@ -431,7 +469,7 @@ function Player(client) {
 	}
 
 	this.validatePlacement = function(colour, y) {
-		if (this.pattern[y].filter(p => p != null).length > 1) {
+		if (this.pattern[y].filter(p => p != null).length > 0) {
 			if(this.pattern[y][0].colour != colour) {
 				return false;
 			}
@@ -449,7 +487,6 @@ function Player(client) {
 	}
 
 	this.placeInPattern = function(picked, y) {
-		console.log('picked', picked);
 		picked.forEach(t => {
 			if (y > -1 && t.colour != 5) {
 				this.game.moveTile(t, 'pattern', { playerId: this.id, patternRow: y });
@@ -460,8 +497,6 @@ function Player(client) {
 	}
 
 	this.pick = function(colour, zone, destination) {
-		console.log('Smiddle', this.game.middle);
-
 		// destination -1 means the floor
 		if (destination >= 0 && !this.validatePlacement(colour, destination)) {
 			return false;
@@ -474,7 +509,6 @@ function Player(client) {
 		} else {
 			picked = this.game.factories[zone].filter(t => t.colour == colour);
 			var unpicked = this.game.factories[zone].filter(t => t.colour != colour);
-			console.log('unpicked', unpicked);
 
 			unpicked.forEach(t => {
 				this.game.moveTile(t, 'middle')
@@ -482,8 +516,6 @@ function Player(client) {
 		}
 		
 		this.placeInPattern(picked, destination);
-
-		console.log('Emiddle', this.game.middle);
 
 		return true;
 	}
@@ -497,16 +529,21 @@ function Player(client) {
 			if (this.pattern[p].filter(t => t == null).length == 0) {
 				var colour = this.pattern[p][0].colour;
 				this.game.moveTile(this.pattern[p][0], 'grid', { playerId: this.id, patternRow: p })
-				var x = GRIDCOLOURS[p][colour];
+				var x = GRIDCOLOURS[p].indexOf(colour);
 				this.score += this.scorePlacement(x, p);
 
-				console.log(this.pattern, p);
 				for (var i = 1; i < this.pattern[p].length; i++) {
 					this.game.moveTile(this.pattern[p][i], 'lid');
 				}
 			}
 		}
 		// scan horizontal rows of grid
+		for(var p = 0; p < 5; p++) {
+			if (this.grid[p].filter(g => g != null).length == 5) {
+				ret.endingGame = true;
+			}
+		}
+
 		for(var r = 0; r < this.floor.length && this.floor[r]; r++) {
 			if (r < 2) {
 				this.score -= 1;
@@ -564,7 +601,7 @@ function Player(client) {
 		// rows +2
 	outer:	for(var y = 0; y < 5; y++) {
 			for(var x = 0; x < 5; x++) {
-				if(!grid[y][x]) {
+				if(!this.grid[y][x]) {
 					continue outer;
 				}
 			}
@@ -574,7 +611,7 @@ function Player(client) {
 		// columns +7
 	outer:	for(var x = 0; x < 5; x++) {
 			for(var y = 0; y < 5; y++) {
-				if(!grid[y][x]) {
+				if(!this.grid[y][x]) {
 					continue outer;
 				}
 			}
@@ -584,14 +621,14 @@ function Player(client) {
 		// sets = +10
 		outer:	for(var x = 0; x < 5; x++) {
 			for(var y = 0; y < 5; y++) {
-				if(!grid[y][(x+y)%5]) {
+				if(!this.grid[y][(x+y)%5]) {
 					continue outer;
 				}
 			}
 			bonus += 10;
 		}
 		
-		return bonus;
+		this.score += bonus;
 	}
 };
 

@@ -1,7 +1,7 @@
 var ws = require('ws');
 var game = require('./game');
 
-const wss = new ws.Server({ port: 7777 });
+const wss = new ws.Server({ port: 7799 });
 
 const ALPHANUMERIC = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
@@ -47,6 +47,11 @@ function parseMessage(m, client) {
             if (client.player) {
                 client.player.chat(message.data);
             }
+            break;
+        case 'ping':
+            client.send({
+                type: 'pong'
+            });
             break;
         case 'start': 
             if (client.player) {
