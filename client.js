@@ -84,6 +84,18 @@ function processMessage(m) {
                     case 'bag':
                         newPosition = bag;
                         break;
+                    case 'pattern':
+                        var board = boards.filter(b => b.id == tileUpdate.position.playerId)[0];
+                        if (tileUpdate.position.subposition == 'pattern') {
+                            newPosition = board.pattern[tileUpdate.position.y][tileUpdate.position.x];
+                        } else {
+                            newPosition = board.floor[tileUpdate.position.x];
+                        }
+                        break;
+                    case 'grid':
+                        var board = boards.filter(b => b.id == tileUpdate.position.playerId)[0];
+                        newPosition = board.grid[tileUpdate.position.y][tileUpdate.position.x];
+                        break;
                 }
 
                 var newTile = {
@@ -94,14 +106,16 @@ function processMessage(m) {
                 if (!existingTile) {
                     newTiles.push(newTile);
                 } else {
-                    console.log(JSON.stringify(newTile), JSON.stringify(existingTile));
-                    if (newTile.position != existingTile.position) {
-                        newTile.oldposition = existingTile.position;
+                    if (newTile.position != existingTile.position || existingTile.position == middle) {
+                        if (existingTile.position == middle) {
+                            newTile.oldposition = { display: existingTile.display };
+                        } else {
+                            newTile.oldposition = existingTile.position;
+                        }
                         newTile.startTime = Date.now();
                         newTile.r1 = Math.random();
                         newTile.r2 = Math.random();
                         newTiles.push(newTile);
-                        console.log(JSON.stringify(newTile));
                     } else {
                         newTiles.push(existingTile);
                     }
@@ -548,7 +562,7 @@ function render(timestamp) {
     function computeTilePositions(tiles) {
         function extractDisplayValue(position) {
             if (position.display.tiles) {
-                return position.display.tiles.pop();
+                return position.display.tiles.shift();
             } else {
                 return position.display;
             }
@@ -562,17 +576,23 @@ function render(timestamp) {
                 var from = extractDisplayValue(t.oldposition);
                 var to = extractDisplayValue(t.position);
 
-                var xy = bezier({ from: from, to: to, r1: t.r1, r2: t.r2 }, lerp);
-
-                var size = (from.w * (1-lerp)) + (to.w * (lerp));
-
-                t.display = { x: xy.x, y: xy.y, a: lerp*Math.PI*4, w: size }
-
-                if (lerp == 1) {
+                if (lerp == 1 || (from.x == to.x && from.y == to.y)) {
                     t.oldposition = null;
                     t.startTime = null;
                     t.r1 = null;
                     t.r2 = null;
+
+                    t.display = to;
+                } else {
+                    if (t.colour == 5) {
+                        console.log(lerp, from, to);
+                    }
+    
+                    var xy = bezier({ from: from, to: to, r1: t.r1, r2: t.r2 }, lerp);
+    
+                    var size = (from.w * (1-lerp)) + (to.w * (lerp));
+    
+                    t.display = { x: xy.x, y: xy.y, a: lerp*Math.PI*4, w: size }
                 }
             } else {
                 if (t.position) {
@@ -647,13 +667,48 @@ function render(timestamp) {
         var numberOfFactories = factories.length;
         var angleBetween = Math.PI*2/numberOfFactories;
 
-        var maxRadiusOfFactory = (width*Math.PI) / ((2*numberOfFactories) + (2*Math.PI));
+        var maxRadiusOfFactory = 0.7*(width*Math.PI) / ((2*numberOfFactories) + (2*Math.PI));
         var distanceFromCenter = (width/2) - maxRadiusOfFactory;
-        var center = { x: left+(width/2), y: top+(width/2), w: distanceFromCenter-maxRadiusOfFactory };
+        var center = { x: left+(width/2), y: top+(width/2), w: Math.max(distanceFromCenter-maxRadiusOfFactory, 1) };
 
         // generate mid tiles display
 
-        middle.display = { x: center.x, y: center.y, w: center.w };
+        middle.display = { x: center.x, y: center.y, w: center.w, tiles: [] };
+
+        var unit = maxRadiusOfFactory/2;
+
+        for(var i = 0; i < 34; i++) {
+            if (i < 3) {
+                var angle = (2 * Math.PI * i) / 3 ;
+                var distance = unit/1.4;
+
+                middle.display.tiles.push({
+                    x: center.x+(Math.sin(angle)*distance),
+                    y: center.y+(Math.cos(angle)*distance),
+                    w: unit
+                });
+            } else {
+                if (i < 9) {
+                    var angle = (2 * Math.PI * (i-3)) / 6;
+                    var distance = 2*unit;
+    
+                    middle.display.tiles.push({
+                        x: center.x+(Math.sin(angle)*distance),
+                        y: center.y+(Math.cos(angle)*distance),
+                        w: unit
+                    });
+                } else {
+                    var angle = (2 * Math.PI * (i-9)) / 12;
+                    var distance = 3*unit;
+    
+                    middle.display.tiles.push({
+                        x: center.x+(Math.sin(angle)*distance),
+                        y: center.y+(Math.cos(angle)*distance),
+                        w: unit
+                    });
+                }
+            }
+        }
 
         var factoryAngle = 0;
         for(var f = 0; f < numberOfFactories; f++) {
