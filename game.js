@@ -161,6 +161,7 @@ function Game(code, host) {
 		this.broadcastTiles();
 
 		this.turn = Math.floor(Math.random() * this.players.length);
+		this.players[this.turn].isTurn = true;
 	}
 
 	this.start = function() {
@@ -170,7 +171,7 @@ function Game(code, host) {
 			data: 'The game is beginning!'
 		});
 		
-		var factoryCount = 1 + (this.players.length * 2);
+		var factoryCount = Math.max(1 + (this.players.length * 2), 5);
 		for(var i = 0; i < factoryCount; i++) {
 			this.factories.push([]);
 		}
@@ -236,11 +237,13 @@ function Game(code, host) {
 	}
 
 	this.broadcastTiles = function() {
+		var factories = this.factories;
+
 		function serializePosition(position) {
 			var ret = {
 				type: position.type
 			}
-			switch (position) {
+			switch (position.type) {
 				case 'factory':
 					ret.factoryid = factories.indexOf(position.factory);			
 					break;
@@ -254,7 +257,6 @@ function Game(code, host) {
 			type: 'tiles',
 			data: {
 				tiles: this.tiles.map(t => { 
-					console.log(t.position);
 					return {
 						id: t.id,
 						colour: t.colour,
@@ -267,6 +269,8 @@ function Game(code, host) {
 
 	this.broadcaststate = function(player) {
 		this.broadcastPlayerlist();
+		this.broadcastFactories();
+		this.broadcastTiles();
 	}
 
 	this.next = function() {
@@ -321,6 +325,7 @@ function Player(client) {
 	}
 
 	this.command = function(data) {
+		console.log('command', data, this.isTurn);
 		if (this.isTurn) {
 			if(this.pick(data.colour, data.zone, data.destination)) {
 				this.isTurn = false;
@@ -339,6 +344,9 @@ function Player(client) {
 		this.game.broadcaststate(this);
 		this.sendId();
 		this.sendLobbyId();
+		if (!this.game.started && this.isAdmin) {
+			this.sendHost();
+		}
 	}
 
 	this.sendLobbyId = function() {

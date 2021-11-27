@@ -22,6 +22,8 @@ function parseMessage(m, client) {
             if (clients[cookie]) {
                 clients[cookie].ws = client.ws;
                 client = clients[cookie];
+                client.isConnected = true;
+                client.ws.client = client;
             } else {
                 clients[cookie] = client;
             }

@@ -67,30 +67,49 @@ function processMessage(m) {
             var newTiles = [];
             for (var i = 0; i < message.data.tiles.length; i++) {
                 var tileUpdate = message.data.tiles[i];
-                var existingTile = tiles.filter(t => t.id == tileUpdate.id);
+                var existingTile = tiles.filter(t => t.id == tileUpdate.id)[0];
 
+                var newPosition = null;
+                // calculate position
+                switch (tileUpdate.position.type) {
+                    case 'factory':
+                        newPosition = factories[tileUpdate.position.factoryid];
+                        break;
+                    case 'middle':
+                        newPosition = middle;
+                        break;
+                    case 'lid':
+                        newPosition = lid;
+                        break;
+                    case 'bag':
+                        newPosition = bag;
+                        break;
+                }
+
+                var newTile = {
+                    id: tileUpdate.id,
+                    colour: tileUpdate.colour,
+                    position: newPosition
+                }
                 if (!existingTile) {
-                    
+                    newTiles.push(newTile);
                 } else {
-                    if (tileUpdate.position.type != existingTile.position.type) {
-                        switch (tileUpdate.position.type) {
-                            case 'board':
-                                position
-                            case 'factory':
-        
-                            case 'middle':
-        
-                            case 'lid':
-        
-                            case 'bag':
-        
-                        }
+                    console.log(JSON.stringify(newTile), JSON.stringify(existingTile));
+                    if (newTile.position != existingTile.position) {
+                        newTile.oldposition = existingTile.position;
+                        newTile.startTime = Date.now();
+                        newTile.r1 = Math.random();
+                        newTile.r2 = Math.random();
+                        newTiles.push(newTile);
+                        console.log(JSON.stringify(newTile));
+                    } else {
+                        newTiles.push(existingTile);
                     }
                 }
             }
+            tiles = newTiles;
             break;
         case 'playerlist':
-            console.log('here', message.data);
             boards = message.data.players.map(p => NewBoard(p.id, p.name, p.score));
             break;
         case 'playerid':
@@ -403,11 +422,13 @@ function NewBoard(id, name, score) {
 
 var factories = [];
 var boards = [];
-var tiles = []; // { colour: 2, position: factories[0] }, { colour: 4, position: factories[0] }, { colour: 2, position: factories[0] }, { colour: 3, position: factories[0] }
+var tiles = [];
 var middle = {};
-
+var lid = {};
+var bag = {};
 
 function render(timestamp) {
+    var now = Date.now();
     var delta = timestamp - lastTimestamp;
     lastTimestamp = timestamp;
     var fractionOfSecond = (timestamp % 1000) / 1000;
@@ -525,25 +546,37 @@ function render(timestamp) {
     }
 
     function computeTilePositions(tiles) {
-        tiles.forEach(t => {
-            if (t.transition) {
+        function extractDisplayValue(position) {
+            if (position.display.tiles) {
+                return position.display.tiles.pop();
+            } else {
+                return position.display;
+            }
+        }
+
+        tiles.forEach((t, i) => {
+            if (t.oldposition && t.startTime && t.r1 && t.r2) {
                 // lerp between origin and destination
-                var lerp = Math.max(1, (tile.startTime - timestamp) / 1000);
+                var lerp = Math.min(1, (now - t.startTime) / 1000);
 
-                var xy = bezier(tile.transition);
+                var from = extractDisplayValue(t.oldposition);
+                var to = extractDisplayValue(t.position);
 
-                var size = (tile.transition.from.w * (1-p)) + (tile.transition.to.w * (p));
+                var xy = bezier({ from: from, to: to, r1: t.r1, r2: t.r2 }, lerp);
 
-                tile.display = { x: xy.x, y: xy.y, a: p*Math.PI*4, w: size }
+                var size = (from.w * (1-lerp)) + (to.w * (lerp));
+
+                t.display = { x: xy.x, y: xy.y, a: lerp*Math.PI*4, w: size }
 
                 if (lerp == 1) {
-                    tile.transition = null;
+                    t.oldposition = null;
+                    t.startTime = null;
+                    t.r1 = null;
+                    t.r2 = null;
                 }
             } else {
-                if (t.position.display.tiles) {
-                    t.display = t.position.display.tiles.pop();
-                } else {
-                    t.display = tile.position.display;
+                if (t.position) {
+                    t.display = extractDisplayValue(t.position);
                 }
             }
         });
@@ -598,6 +631,11 @@ function render(timestamp) {
 
     }
 
+    function computeLidAndBagPositions() {
+        lid.display = { x: -100, y: -100, w: canvas.width/50 };
+        bag.display = { x: canvas.width + 100, y: -100, w: canvas.width/50 };
+    }
+
     function computeFactoryPositions(left, top, width, height, factories) {
         var widthDiff = 0;
         if (height < width) {
@@ -612,6 +650,8 @@ function render(timestamp) {
         var maxRadiusOfFactory = (width*Math.PI) / ((2*numberOfFactories) + (2*Math.PI));
         var distanceFromCenter = (width/2) - maxRadiusOfFactory;
         var center = { x: left+(width/2), y: top+(width/2), w: distanceFromCenter-maxRadiusOfFactory };
+
+        // generate mid tiles display
 
         middle.display = { x: center.x, y: center.y, w: center.w };
 
@@ -703,6 +743,8 @@ function render(timestamp) {
         });
     }
 
+    computeLidAndBagPositions();
+
     computeTilePositions(tiles);
 
     factories.forEach(f => {
@@ -729,13 +771,15 @@ function render(timestamp) {
     var highlightedPosition = null;
     var highlightedColour = null;
     tiles.forEach(t => {
-        if (tileClicked) {
-            highlightedPosition = tileClicked.position;
-            highlightedColour = tileClicked.colour;
-        } else {
-            if (Math.hypot(t.display.x - cursorX, t.display.y - cursorY) < (t.display.w*0.7)) {
-                highlightedPosition = t.position;
-                highlightedColour = t.colour;
+        if (t.display) {
+            if (tileClicked) {
+                highlightedPosition = tileClicked.position;
+                highlightedColour = tileClicked.colour;
+            } else {
+                if (Math.hypot(t.display.x - cursorX, t.display.y - cursorY) < (t.display.w*0.7)) {
+                    highlightedPosition = t.position;
+                    highlightedColour = t.colour;
+                }
             }
         }
     });
@@ -836,10 +880,12 @@ function render(timestamp) {
     }
 
     tiles.forEach(t => {
-        drawSprite('tiles', t.colour, 0, t.display.x, t.display.y, t.display.w, t.display.w, 0, 0.5);
+        if (t.display) {
+            drawSprite('tiles', t.colour, 0, t.display.x, t.display.y, t.display.w, t.display.w, 0, 0.5);
 
-        if (t.position == highlightedPosition && t.colour == highlightedColour) {
-            drawSprite('highlight', 0, 0, t.display.x, t.display.y, t.display.w, t.display.w, 0, 0.45, 'green');
+            if (t.position == highlightedPosition && t.colour == highlightedColour) {
+                drawSprite('highlight', 0, 0, t.display.x, t.display.y, t.display.w, t.display.w, 0, 0.45, 'green');
+            }
         }
     });
 
@@ -855,7 +901,6 @@ function render(timestamp) {
     }
 
     if (showChatbox) {
-        console.log(fractionOfSecond);
         drawText(unit, top + (9*unit), unit*0.8, ':' + chat, 0.3, fractionOfSecond < 0.5);
     }
 
@@ -1028,6 +1073,7 @@ function beziern(arr, p) {
 		}
 		points = newPoints;
 	}
+
 	
 	return points[0];
 }
@@ -1036,8 +1082,8 @@ function bezier(transition, p) {
 	// project a point no more than len(x0x1, y0y1) from the middle of vec(x0x1, y0y1) at 90 degrees.
 	
     var x0 = transition.from.x;
-    var y0 = transition.to.y;
-    var x1 = transition.from.x;
+    var y0 = transition.from.y;
+    var x1 = transition.to.x;
     var y1 = transition.to.y;
 
     var xm = (x0 + x1) / 2;
@@ -1061,7 +1107,7 @@ function bezier(transition, p) {
     var nearDestx = x1 + (Math.sin(angle) * dist);
     var nearDesty = y1 + (Math.cos(angle) * dist);
 
-	 beziern([
+	return beziern([
          { x: x0, y: y0 },
          { x: midx, y: midy },
          { x: nearDestx, y: nearDesty },
