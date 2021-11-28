@@ -1,7 +1,7 @@
 var webaddress = 'ws://localhost:7799';
-//webaddress = 'wss://plainsightindustries/azolinesocket';
+//var webaddress = 'wss://plainsightindustries.com/azolinesocket';
 var resourceaddress = 'http://localhost:8080/';
-//resourceaddress = 'http://plainsightindustries.com/azul/';
+//var resourceaddress = 'https://plainsightindustries.com/azul/';
 let socket = new WebSocket(webaddress);
 
 socket.onopen = function() {
@@ -234,7 +234,7 @@ function loadTexture(src, d, noblur)  {
      
     // Asynchronously load an image
     var image = new Image();
-    image.src = 'http://localhost:8080/'+src;
+    image.src = resourceaddress+src;
     image.crossOrigin = 'anonymous';
     image.addEventListener('load', function() {
         gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -596,7 +596,7 @@ function render(timestamp) {
         
                         var size = (from.w * (1-lerp)) + (to.w * (lerp));
         
-                        t.display = { x: xy.x, y: xy.y, a: lerp*Math.PI*4, w: size }
+                        t.display = { x: xy.x, y: xy.y, a: lerp*Math.PI*Math.floor(t.r1*6), w: size }
                     }
                 } else {
                     if (t.position) {
@@ -945,10 +945,10 @@ function render(timestamp) {
 
     tiles.forEach(t => {
         if (t.display) {
-            drawSprite('tiles', t.colour, 0, t.display.x, t.display.y, t.display.w, t.display.w, 0, 0.5);
+            drawSprite('tiles', t.colour, 0, t.display.x, t.display.y, t.display.w, t.display.w, t.display.a || 0, !!t.display.a ? 0.49 : 0.5);
 
             if (t.position == highlightedPosition && t.colour == highlightedColour) {
-                drawSprite('highlight', 0, 0, t.display.x, t.display.y, t.display.w, t.display.w, 0, 0.45, 'green');
+                drawSprite('highlight', 0, 0, t.display.x, t.display.y, t.display.w, t.display.w, t.display.a || 0, 0.45, 'green');
             }
         }
     });
@@ -1050,6 +1050,25 @@ function mouseDown(e) {
 
 function touchDown(e) {
     clicks.push({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+    if (showNamebox) {
+        playerName = prompt('Enter your name');
+        sendMessage({
+            type: 'name',
+            data: playerName
+        });
+        showNamebox = false;
+        showJoinUI = true;
+    } else {
+        if (showJoinUI) {
+            joinCode = prompt('Enter game code');
+            sendMessage({
+                type: 'join',
+                data: joinCode
+            });
+            joinCode = '';
+            showJoinUI = false;
+        }
+    }
 }
 
 function keyDown(e) {
@@ -1076,7 +1095,7 @@ function keyDown(e) {
             type: 'join',
             data: joinCode
         });
-        joinCode = false;
+        joinCode = '';
         showJoinUI = false;
     }
     if (showChatbox) {

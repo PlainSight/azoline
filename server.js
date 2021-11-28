@@ -64,14 +64,19 @@ function parseMessage(m, client) {
         case 'join':
             // either enter them into a game or start a new game
             var gameCode = message.data;
-            var newPlayer = new game.Player(client);
-            if (games[gameCode]) {
-                if (!games[gameCode].addPlayer(newPlayer)) {
-                    client.send({ type: 'text', data: 'Game already in progress please enter another code.' });
-                    client.send({ type: 'codeplease' });
+            if (gameCode && gameCode.length > 3) {
+                var newPlayer = new game.Player(client);
+                if (games[gameCode]) {
+                    if (!games[gameCode].addPlayer(newPlayer)) {
+                        client.send({ type: 'text', data: 'Game already in progress please enter another code.' });
+                        client.send({ type: 'codeplease' });
+                    }
+                } else {
+                    games[gameCode] = new game.Game(gameCode, newPlayer);
                 }
             } else {
-                games[gameCode] = new game.Game(gameCode, newPlayer);
+                client.send({ type: 'text', data: 'Please enter a longer code.' });
+                client.send({ type: 'codeplease' });
             }
             break;
         case 'command':
@@ -94,3 +99,17 @@ wss.on('connection', function connection(ws) {
         }
     });
 });
+
+setInterval(() => {
+    Object.keys(games).forEach(g => {
+        var game = games[g];
+        if (game.finished) {
+            game.players.forEach(p => {
+                var c = p.client;
+                c.player = null;
+                c.send({ type: 'codeplease' });
+            });
+            delete games[g];
+        }
+    });
+}, 1000);

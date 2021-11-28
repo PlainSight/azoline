@@ -36,6 +36,7 @@ function Game(code, host) {
 	this.middle = [];
 	this.turn = 0;
 	this.started = false;
+	this.finished = false;
 
 	this.addPlayer = function(player) {
 		if (!this.started) {
@@ -339,35 +340,45 @@ function Game(code, host) {
 			this.broadcastTurn();
 			this.broadcastTiles();
 		} else {
-			// new round
-			var roundResults = this.players.map(p => {
-				return {
-					res: p.build(),
-					player: p
-				};
-			});
+			this.broadcastTiles();
 
-			var gameEnding = roundResults.filter(rr => rr.res.endingGame).length > 0;
-
-			var nextPlayer = roundResults.filter(rr => rr.res.startsNext == true)[0].player;
-			this.turn = this.players.indexOf(nextPlayer);
-
-			if (!gameEnding) {
-				this.populateFactories();
-				this.broadcastPlayerlist();
-				this.players[this.turn].isTurn = true;
-				this.broadcastTurn();
-				this.broadcastTiles();
-			} else {
-				this.players.forEach(p => {
-					p.calculateBonuses();
+			setTimeout(() => {
+				// new round
+				var roundResults = this.players.map(p => {
+					return {
+						res: p.build(),
+						player: p
+					};
 				});
-				var bestScore = Math.max(...this.players.map(p => p.score));
-				var bestPlayer = this.players.filter(p => p.score == bestScore)[0];
-				this.broadcastPlayerlist();
-				this.broadcastTiles();
-				this.chat(bestPlayer.client.name + ' WINS WITH ' + bestScore + ' POINTS!');
-			}
+
+				var gameEnding = roundResults.filter(rr => rr.res.endingGame).length > 0;
+
+				var nextPlayer = roundResults.filter(rr => rr.res.startsNext == true)[0].player;
+				this.turn = this.players.indexOf(nextPlayer);
+
+				if (!gameEnding) {
+					this.populateFactories();
+					this.broadcastPlayerlist();
+					this.players[this.turn].isTurn = true;
+					this.broadcastTurn();
+					this.broadcastTiles();
+				} else {
+					this.players.forEach(p => {
+						var bonus = p.calculateBonuses();
+						this.chat(p.client.name + ' SCORES ' + bonus + ' BONUS POINTS!');
+					});
+					var bestScore = Math.max(...this.players.map(p => p.score));
+					var bestPlayer = this.players.filter(p => p.score == bestScore)[0];
+					this.broadcastPlayerlist();
+					this.broadcastTiles();
+					this.chat(bestPlayer.client.name + ' WINS WITH ' + bestScore + ' POINTS!');
+					this.chat('The game will end in 60 seconds');
+
+					setTimeout(() => {
+						this.finished = true;
+					}, 60000);
+				}
+			}, 2000);
 			
 		}
 	}
@@ -419,7 +430,7 @@ function Player(client) {
 	}
 
 	this.command = function(data) {
-		console.log('command', this.player.client.name, data, this.isTurn);
+		console.log('command', this.client.name, data, this.isTurn);
 		if (this.isTurn) {
 			var colour = NAMETOCOLOURID[data.colour];
 			if(this.pick(colour, data.zone, data.destination)) {
@@ -551,7 +562,9 @@ function Player(client) {
 				if (r < 5) {
 					this.score -= 2;
 				} else {
-					this.score -= 3;
+					if (r < 7) {
+						this.score -= 3;
+					}
 				}
 			}
 			var tile = this.floor[r];
@@ -629,6 +642,7 @@ function Player(client) {
 		}
 		
 		this.score += bonus;
+		return bonus;
 	}
 };
 
