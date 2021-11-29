@@ -479,7 +479,6 @@ function Player(client) {
 		this.client.send(message)
 	}
 
-	// TODO: validate that tiles are actually available to be picked up you potato
 	this.validatePlacement = function(colour, y) {
 		if (this.pattern[y].filter(p => p != null).length > 0) {
 			if(this.pattern[y][0].colour != colour) {
@@ -518,8 +517,14 @@ function Player(client) {
 		if (zone == -1) {
 			// picking from the middle
 			picked = this.game.middle.filter(t => t.colour == colour || t.colour == 5);
+			if (picked.length == 0) {
+				return false;
+			}
 		} else {
 			picked = this.game.factories[zone].filter(t => t.colour == colour);
+			if (picked.length == 0) {
+				return false;
+			}
 			var unpicked = this.game.factories[zone].filter(t => t.colour != colour);
 
 			unpicked.forEach(t => {
