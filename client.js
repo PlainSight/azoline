@@ -468,9 +468,14 @@ function render(timestamp) {
         draw(sheet, sx, sy, dim, dim, dx, dy, w, h, angle, z, color);
     }
 
-    function drawText(x, y, w, text, z, drawCursor) {
+    function drawText(x, y, w, maxWidth, text, z, drawCursor) {
         var position = 0;
+        var line = 0;
         for(var i = 0; i < text.length; i++) {
+            if (w*position > maxWidth) {
+                position = 0;
+                line++;
+            }
             var charCode = text.charCodeAt(i);
             var spriteX;
             var spriteY;
@@ -507,7 +512,7 @@ function render(timestamp) {
                 valid = true;
             }
             if (valid) {
-                drawSprite('font', spriteX, spriteY, x+(position*w), y, w, w, 0, z || 0.35);
+                drawSprite('font', spriteX, spriteY, x+(position*w), y+(line*w), w, w, 0, z || 0.35);
             }
             position++;
         }
@@ -534,7 +539,7 @@ function render(timestamp) {
         drawSprite('backer', 2, 1, x+(tilesWide*unit), y+unit, unit, unit, 0, 0.2);
 
         // draw text here
-        drawText(x+unit, y+unit, textunit, text, 0.15, false);
+        drawText(x+unit, y+unit, textunit, width, text, 0.15, false);
 
         if (type == 'text') {
             drawSprite('backer', 0, 2, x, y+(2*unit), unit, unit, 0, 0.2);
@@ -544,7 +549,7 @@ function render(timestamp) {
             drawSprite('backer', 2, 2, x+(tilesWide*unit), y+(2*unit), unit, unit, 0, 0.2);
 
             // draw input here
-            drawText(x+unit, y+(2*unit), textunit, cb(), 0.15, fractionOfSecond < 0.5);
+            drawText(x+unit, y+(2*unit), textunit, width, cb(), 0.15, fractionOfSecond < 0.5);
         }
 
         if (type == 'button') {
@@ -554,7 +559,7 @@ function render(timestamp) {
             }
             drawSprite('backer', 2, 3, x+(tilesWide*unit), y+(2*unit), unit, unit, 0, 0.2);
 
-            drawText(x+unit, y+(2*unit), textunit, 'START', 0.15);
+            drawText(x+unit, y+(2*unit), textunit, width, 'START', 0.15);
 
             cb(x+(unit/2), y+(1.5*unit), tilesWide*unit, unit);
         }
@@ -822,8 +827,8 @@ function render(timestamp) {
             drawSprite('highlight', 0, 0, f.display.x, f.display.y, f.display.w, f.display.w, 0, 0.55, 'red');
         });
         // draw text
-        drawText(b.display.name.x, b.display.name.y, b.display.name.w, b.turn ? ':' + b.name + ':' : b.name, 0.3, false);
-        drawText(b.display.score.x, b.display.score.y, b.display.score.w, b.score < 0 ? 'n'+b.score: ''+b.score, 0.3, false);
+        drawText(b.display.name.x, b.display.name.y, b.display.name.w, b.display.name.w*8, b.turn ? ':' + b.name + ':' : b.name, 0.3, false);
+        drawText(b.display.score.x, b.display.score.y, b.display.score.w, b.display.name.w*2, b.score < 0 ? 'n'+b.score: ''+b.score, 0.3, false);
     });
 
 
@@ -960,12 +965,12 @@ function render(timestamp) {
     var unit = canvas.height/20;
     var j = 0;
     for (var i = Math.max(0, chatlog.length - 8); i < chatlog.length; i++) {
-        drawText(unit, top + unit + (j*unit), unit*0.8, chatlog[i].message, 0.3);
+        drawText(unit, top + unit + (j*unit), unit*0.8, canvas.width/2, chatlog[i].message, 0.3);
         j++;
     }
 
     if (showChatbox) {
-        drawText(unit, top + (9*unit), unit*0.8, ':' + chat, 0.3, fractionOfSecond < 0.5);
+        drawText(unit, top + (9*unit), unit*0.8, canvas.width/2, ':' + chat, 0.3, fractionOfSecond < 0.5);
     }
 
     if (showNamebox) {
