@@ -76,6 +76,8 @@ function processMessage(m) {
                 var tileUpdate = message.data.tiles[i];
                 var existingTile = tiles.filter(t => t.id == tileUpdate.id)[0];
 
+                var delay = 0;
+                var transitionTime = 1000;
                 var newPosition = null;
                 // calculate position
                 switch (tileUpdate.position.type) {
@@ -102,6 +104,8 @@ function processMessage(m) {
                     case 'grid':
                         var board = boards.filter(b => b.id == tileUpdate.position.playerId)[0];
                         newPosition = board.grid[tileUpdate.position.y][tileUpdate.position.x];
+                        delay = tileUpdate.position.y * 500;
+                        transitionTime = 500;
                         break;
                 }
 
@@ -119,7 +123,8 @@ function processMessage(m) {
                         } else {
                             newTile.oldposition = existingTile.position;
                         }
-                        newTile.startTime = Date.now();
+                        newTile.startTime = (Date.now() + delay);
+                        newTile.transitionTime = transitionTime;
                         newTile.r1 = Math.random();
                         newTile.r2 = Math.random();
                         newTiles.push(newTile);
@@ -512,12 +517,12 @@ function render(timestamp) {
                 valid = true;
             }
             if (valid) {
-                drawSprite('font', spriteX, spriteY, x+(position*w), y+(line*w), w, w, 0, z || 0.35);
+                drawSprite('font2', spriteX, spriteY, x+(position*w), y+(line*w), w, w, 0, z || 0.35);
             }
             position++;
         }
         if (drawCursor) {
-            drawSprite('font', 4, 5, x+((position)*w), y, w, w, 0, z || 0.35);
+            drawSprite('font2', 4, 5, x+((position)*w), y, w, w, 0, z || 0.35);
         }
     }
 
@@ -584,7 +589,7 @@ function render(timestamp) {
             if (t.position.display != null) {
                 if (t.oldposition && t.oldposition.display && t.startTime && t.r1 && t.r2) {
                     // lerp between origin and destination
-                    var lerp = Math.min(1, (now - t.startTime) / 1000);
+                    var lerp = Math.max(Math.min(1, (now - t.startTime) / 1000), 0);
     
                     var from = extractDisplayValue(t.oldposition);
                     var to = extractDisplayValue(t.position);
@@ -1025,7 +1030,7 @@ var graphics = [
     { n : 'places.png', d: 88 },
     { n: 'factory.png', d: 200 },
     { n: 'highlight.png', d: 88, noblur: true },
-    { n: 'font.png', d: 11, noblur: true },
+    { n: 'font2.png', d: 10, noblur: true },
     { n: 'backer.png', d: 11, noblur: true }
 ].reduce((a, c) => {
     var name = c.n.split('.')[0];
