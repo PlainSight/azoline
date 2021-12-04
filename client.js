@@ -254,6 +254,7 @@ function loadTexture(src, d, noblur)  {
 
 var positionBuffer = gl.createBuffer();
 var texturePositionBuffer = gl.createBuffer();
+var colourBuffer = gl.createBuffer();
 
 function drawScene(gl, programInfo, calls) {
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -364,8 +365,7 @@ function drawScene(gl, programInfo, calls) {
         gl.vertexAttribPointer(programInfo.attribLocations.texturePosition, 2, gl.FLOAT, false, 0, 0);
     
         gl.enableVertexAttribArray(programInfo.attribLocations.recolorData);
-        var buffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, colourBuffer);
         var colors = [];
         drawCalls.forEach(dc => {
             var r = 0;
