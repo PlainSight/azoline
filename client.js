@@ -833,7 +833,7 @@ function render(timestamp) {
         });
         // draw text
         drawText(b.display.name.x, b.display.name.y, b.display.name.w, b.display.name.w*8, b.turn ? ':' + b.name + ':' : b.name, 0.3, false);
-        drawText(b.display.score.x, b.display.score.y, b.display.score.w, b.display.name.w*2, b.score < 0 ? 'n'+b.score: ''+b.score, 0.3, false);
+        drawText(b.display.score.x, b.display.score.y, b.display.score.w, b.display.name.w*8, b.score < 0 ? 'n'+b.score: ''+b.score, 0.3, false);
     });
 
 
