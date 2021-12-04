@@ -219,8 +219,8 @@ function Game(code, host) {
 		this.broadcastFactories();
 
 		var numberOftiles = 100;
-		if (this.players.length == 5) {
-			numberOftiles += 25;
+		if (this.players.length > 4) {
+			numberOftiles += (this.players.length-4)*25;
 		}
 		for(var i = 0; i < numberOftiles; i++) {
 			this.tiles.push({
