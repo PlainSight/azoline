@@ -408,7 +408,7 @@ function drawScene(gl, programInfo, calls) {
 }
 
 var lastTimestamp = 0;
-var playerId = 2;
+var playerId = '';
 var turn = false;
 
 var COLOURS = [
@@ -682,7 +682,7 @@ function render(timestamp) {
         var numberOfFactories = factories.length;
         var angleBetween = Math.PI*2/numberOfFactories;
 
-        var maxRadiusOfFactory = 0.7*(width*Math.PI) / ((2*numberOfFactories) + (2*Math.PI));
+        var maxRadiusOfFactory = 0.7*(width*Math.PI) / (Math.pow(2*numberOfFactories, 0.9) + (2*Math.PI));
         var distanceFromCenter = (width/2) - maxRadiusOfFactory;
         var center = { x: left+(width/2), y: top+(width/2), w: Math.max(distanceFromCenter-maxRadiusOfFactory, 1) };
 
@@ -772,7 +772,7 @@ function render(timestamp) {
 
         computeFactoryPositions(0, canvas.height - remainingHeight, factoryWidth, factoryHeight, factories);
 
-        if (boards.length) {
+        if (boards.length && playerId != '') {
             var playerPosition = boards.findIndex(b => b.id == playerId);
             var numberOfOpponents = boards.length - 1;
             var leftSideCount = Math.ceil(numberOfOpponents/2);
@@ -808,7 +808,7 @@ function render(timestamp) {
 
         computeFactoryPositions(oppositionBoardWidth, 0, factoryWidth, factoryHeight, factories);
 
-        if (boards.length) {
+        if (boards.length && playerId != '') {
             var playerPosition = boards.findIndex(b => b.id == playerId);
             var numberOfOpponents = boards.length - 1;
             var leftSideCount = Math.ceil(numberOfOpponents/2);
