@@ -211,6 +211,10 @@ function Game(code, host) {
 			type: 'text',
 			data: 'The game is beginning!'
 		});
+
+		this.players.sort((a, b) => Math.random()-0.5);
+
+		this.broadcastPlayerlist();
 		
 		var factoryCount = Math.max(1 + (this.players.length * 2), 5);
 		for(var i = 0; i < factoryCount; i++) {

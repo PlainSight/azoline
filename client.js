@@ -772,19 +772,28 @@ function render(timestamp) {
 
         computeFactoryPositions(0, canvas.height - remainingHeight, factoryWidth, factoryHeight, factories);
 
-        var oppositionCount = 0;
-        boards.forEach(b => {
-            if (b.id == playerId) {
-                computeBoardPositions(0, canvas.height - playerBoardHeight, playerBoardWidth, playerBoardHeight, b);
-            } else {
-                var xpos = oppositionCount % 2;
-                var ypos = Math.floor(oppositionCount / 2);
-                computeBoardPositions(xpos*oppositionBoardWidth, ypos*oppositionBoardHeight, oppositionBoardWidth, oppositionBoardHeight, b);
-
-                oppositionCount++;
+        if (boards.length) {
+            var playerPosition = boards.findIndex(b => b.id == playerId);
+            var numberOfOpponents = boards.length - 1;
+            var leftSideCount = Math.ceil(numberOfOpponents/2);
+            computeBoardPositions(0, canvas.height - playerBoardHeight, playerBoardWidth, playerBoardHeight, boards[playerPosition]);
+            var iter = 0;
+            for(var bi = (playerPosition+1) % boards.length; bi != playerPosition; bi = ((bi+1) % boards.length)) {
+                var xpos = 0;
+                var ypos = 0;
+                if (iter >= leftSideCount) {
+                    // right
+                    xpos = 1;
+                    ypos = iter - leftSideCount;
+                } else {
+                    // left
+                    ypos = leftSideCount - (1+iter);
+                }
+                computeBoardPositions(xpos*oppositionBoardWidth, ypos*oppositionBoardHeight, oppositionBoardWidth, oppositionBoardHeight, boards[bi]);
+                iter++;
             }
-        });
-
+        }
+        
     } else {
         // hori layout
         // X F X
@@ -799,18 +808,27 @@ function render(timestamp) {
 
         computeFactoryPositions(oppositionBoardWidth, 0, factoryWidth, factoryHeight, factories);
 
-        var oppositionCount = 0;
-        boards.forEach(b => {
-            if (b.id == playerId) {
-                computeBoardPositions(0, canvas.height - playerBoardHeight, playerBoardWidth, playerBoardHeight, b);
-            } else {
-                var xpos = oppositionCount % 2;
-                var ypos = Math.floor(oppositionCount / 2);
-                computeBoardPositions(xpos*(oppositionBoardWidth+factoryWidth), ypos*oppositionBoardHeight, oppositionBoardWidth, oppositionBoardHeight, b);
-
-                oppositionCount++;
+        if (boards.length) {
+            var playerPosition = boards.findIndex(b => b.id == playerId);
+            var numberOfOpponents = boards.length - 1;
+            var leftSideCount = Math.ceil(numberOfOpponents/2);
+            computeBoardPositions(0, canvas.height - playerBoardHeight, playerBoardWidth, playerBoardHeight, boards[playerPosition]);
+            var iter = 0;
+            for(var bi = (playerPosition+1) % boards.length; bi != playerPosition; bi = ((bi+1) % boards.length)) {
+                var xpos = 0;
+                var ypos = 0;
+                if (iter >= leftSideCount) {
+                    // right
+                    xpos = 1;
+                    ypos = iter - leftSideCount;
+                } else {
+                    // left
+                    ypos = leftSideCount - (1+iter);
+                }
+                computeBoardPositions(xpos*(oppositionBoardWidth+factoryWidth), ypos*oppositionBoardHeight, oppositionBoardWidth, oppositionBoardHeight, boards[bi]);
+                iter++;
             }
-        });
+        }
     }
 
     computeLidAndBagPositions();
