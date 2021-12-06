@@ -531,49 +531,49 @@ function render(timestamp) {
         var textunit = width / text.length;
         var tilesWide = Math.ceil(width/unit);
         
-        drawSprite('backer', 0, 0, x, y, unit, unit, 0, 0.2);
+        drawSprite('ui', 0, 0, x, y, unit, unit, 0, 0.2);
         for(var c = 1; c < tilesWide; c++) {
-            drawSprite('backer', 1, 0, x+(c*unit), y, unit, unit, 0, 0.2);
+            drawSprite('ui', 1, 0, x+(c*unit), y, unit, unit, 0, 0.2);
         }
-        drawSprite('backer', 2, 0, x+(tilesWide*unit), y, unit, unit, 0, 0.2);
+        drawSprite('ui', 2, 0, x+(tilesWide*unit), y, unit, unit, 0, 0.2);
 
-        drawSprite('backer', 0, 1, x, y+unit, unit, unit, 0, 0.2);
+        drawSprite('ui', 0, 1, x, y+unit, unit, unit, 0, 0.2);
         for(var c = 1; c < tilesWide; c++) {
-            drawSprite('backer', 1, 1, x+(c*unit), y+unit, unit, unit, 0, 0.2);
+            drawSprite('ui', 1, 1, x+(c*unit), y+unit, unit, unit, 0, 0.2);
         }
-        drawSprite('backer', 2, 1, x+(tilesWide*unit), y+unit, unit, unit, 0, 0.2);
+        drawSprite('ui', 2, 1, x+(tilesWide*unit), y+unit, unit, unit, 0, 0.2);
 
         // draw text here
         drawText(x+unit, y+unit, textunit, width, text, 0.15, false);
 
         if (type == 'text') {
-            drawSprite('backer', 0, 2, x, y+(2*unit), unit, unit, 0, 0.2);
+            drawSprite('ui', 0, 2, x, y+(2*unit), unit, unit, 0, 0.2);
             for(var c = 1; c < tilesWide; c++) {
-                drawSprite('backer', 1, 2, x+(c*unit), y+(2*unit), unit, unit, 0, 0.2);
+                drawSprite('ui', 1, 2, x+(c*unit), y+(2*unit), unit, unit, 0, 0.2);
             }
-            drawSprite('backer', 2, 2, x+(tilesWide*unit), y+(2*unit), unit, unit, 0, 0.2);
+            drawSprite('ui', 2, 2, x+(tilesWide*unit), y+(2*unit), unit, unit, 0, 0.2);
 
             // draw input here
             drawText(x+unit, y+(2*unit), textunit, width, cb(), 0.15, fractionOfSecond < 0.5);
         }
 
         if (type == 'button') {
-            drawSprite('backer', 0, 3, x, y+(2*unit), unit, unit, 0, 0.2);
+            drawSprite('ui', 0, 3, x, y+(2*unit), unit, unit, 0, 0.2);
             for(var c = 1; c < tilesWide; c++) {
-                drawSprite('backer', 1, 3, x+(c*unit), y+(2*unit), unit, unit, 0, 0.2);
+                drawSprite('ui', 1, 3, x+(c*unit), y+(2*unit), unit, unit, 0, 0.2);
             }
-            drawSprite('backer', 2, 3, x+(tilesWide*unit), y+(2*unit), unit, unit, 0, 0.2);
+            drawSprite('ui', 2, 3, x+(tilesWide*unit), y+(2*unit), unit, unit, 0, 0.2);
 
             drawText(x+unit, y+(2*unit), textunit, width, 'START', 0.15);
 
             cb(x+(unit/2), y+(1.5*unit), tilesWide*unit, unit);
         }
 
-        drawSprite('backer', 0, 4, x, y+(3*unit), unit, unit, 0, 0.2);
+        drawSprite('ui', 0, 4, x, y+(3*unit), unit, unit, 0, 0.2);
         for(var c = 1; c < tilesWide; c++) {
-            drawSprite('backer', 1, 4, x+(c*unit), y+(3*unit), unit, unit, 0, 0.2);
+            drawSprite('ui', 1, 4, x+(c*unit), y+(3*unit), unit, unit, 0, 0.2);
         }
-        drawSprite('backer', 2, 4, x+(tilesWide*unit), y+(3*unit), unit, unit, 0, 0.2);
+        drawSprite('ui', 2, 4, x+(tilesWide*unit), y+(3*unit), unit, unit, 0, 0.2);
     }
 
     function computeTilePositions(tiles) {
@@ -1021,7 +1021,7 @@ function render(timestamp) {
 
     if (lobbyName) {
         // put in top right
-        drawText(canvas.width - (lobbyName.length * 11), 11, 11, lobbyName, 0.2);
+        drawText(canvas.width - (lobbyName.length * 11), 11, 11, lobbyName.length*11, lobbyName, 0.2);
     }
 
     drawScene(gl, programInfo, calls);
@@ -1049,7 +1049,7 @@ var graphics = [
     { n: 'factory.png', d: 200 },
     { n: 'highlight.png', d: 88, noblur: true },
     { n: 'font2.png', d: 10, noblur: true },
-    { n: 'backer.png', d: 11, noblur: true }
+    { n: 'ui.png', d: 11, noblur: true }
 ].reduce((a, c) => {
     var name = c.n.split('.')[0];
     a[name] = loadTexture(c.n, c.d, c.noblur);
