@@ -400,6 +400,7 @@ function Player(client) {
 	this.game = null;
 	this.client = client;
 	this.isTurn = false;
+	this.startsNext = false;
 	client.player = this;
 
 	this.pattern = [
@@ -503,6 +504,9 @@ function Player(client) {
 
 	this.placeInPattern = function(picked, y) {
 		picked.forEach(t => {
+			if (t.colour == 5) {
+				this.startsNext = true;
+			}
 			if (y > -1 && t.colour != 5) {
 				this.game.moveTile(t, 'pattern', { playerId: this.id, patternRow: y });
 			} else {
@@ -580,11 +584,14 @@ function Player(client) {
 			var tile = this.floor[r];
 			if (tile.colour != 5) {
 				this.game.moveTile(tile, 'lid');
-			} else {
-				ret.startsNext = true;
-				this.game.moveTile(tile, 'middle');
-			}
+			} 
+			// else {
+			// 	ret.startsNext = true;
+			// 	this.game.moveTile(tile, 'middle');
+			// }
 		}
+		ret.startsNext = this.startsNext;
+		this.startsNext = false;
 		return ret;
 	}
 
