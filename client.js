@@ -755,6 +755,7 @@ function render(timestamp) {
     // calculate display based on canvas resolution;
 
     var playerCount = boards.length;
+    var playerTileSize = canvas.width * 0.08;
 
     if (canvas.width < canvas.height) {
         // vert layout
@@ -777,6 +778,8 @@ function render(timestamp) {
             var numberOfOpponents = boards.length - 1;
             var leftSideCount = Math.ceil(numberOfOpponents/2);
             computeBoardPositions(0, canvas.height - playerBoardHeight, playerBoardWidth, playerBoardHeight, boards[playerPosition]);
+            playerTileSize = boards[playerPosition].display.score.w;
+
             var iter = 0;
             for(var bi = (playerPosition+1) % boards.length; bi != playerPosition; bi = ((bi+1) % boards.length)) {
                 var xpos = 0;
@@ -813,6 +816,8 @@ function render(timestamp) {
             var numberOfOpponents = boards.length - 1;
             var leftSideCount = Math.ceil(numberOfOpponents/2);
             computeBoardPositions(0, canvas.height - playerBoardHeight, playerBoardWidth, playerBoardHeight, boards[playerPosition]);
+            playerTileSize = boards[playerPosition].display.score.w;
+
             var iter = 0;
             for(var bi = (playerPosition+1) % boards.length; bi != playerPosition; bi = ((bi+1) % boards.length)) {
                 var xpos = 0;
@@ -1019,9 +1024,16 @@ function render(timestamp) {
         }, click);
     }
 
+    if (showMenuUI) {
+
+    }
+
     if (lobbyName) {
         // put in top right
         drawText(canvas.width - (lobbyName.length * 11), 11, 11, lobbyName.length*11, lobbyName, 0.2);
+
+        // put menu somewhere
+        drawSprite('ui', 0, 5, canvas.width - playerTileSize, canvas.height - playerTileSize, playerTileSize, playerTileSize, 0, 0.2);
     }
 
     drawScene(gl, programInfo, calls);
@@ -1049,7 +1061,7 @@ var graphics = [
     { n: 'factory.png', d: 200 },
     { n: 'highlight.png', d: 88, noblur: true },
     { n: 'font2.png', d: 10, noblur: true },
-    { n: 'ui.png', d: 11, noblur: true }
+    { n: 'ui.png', d: 32, noblur: true }
 ].reduce((a, c) => {
     var name = c.n.split('.')[0];
     a[name] = loadTexture(c.n, c.d, c.noblur);
@@ -1060,6 +1072,7 @@ var showChatbox = false;
 var showNamebox = false;
 var showJoinUI = false;
 var showHostUI = false;
+var showMenuUI = false;
 var chat = '';
 var playerName = '';
 var joinCode = '';
