@@ -188,6 +188,13 @@ function Game(code, host) {
 	this.populateFactories = function() {
 		this.bag = this.bag.sort((a, b) => Math.random()-0.5);
 
+		var numberOne = this.lid.filter(t => t.colour == 5)[0];
+		this.lid = this.lid.filter(t => t.colour != 5);
+
+		if (numberOne) {
+			this.moveTile(numberOne, 'middle');
+		}
+
 		for(var i = 0; i < (this.factories.length * 4) ; i++) {
 			if (this.bag.length == 0) {
 				this.replenishBag();
@@ -584,11 +591,9 @@ function Player(client) {
 			var tile = this.floor[r];
 			if (tile.colour != 5) {
 				this.game.moveTile(tile, 'lid');
-			} 
-			// else {
-			// 	ret.startsNext = true;
-			// 	this.game.moveTile(tile, 'middle');
-			// }
+			} else {
+			 	this.game.moveTile(tile, 'middle');
+			}
 		}
 		ret.startsNext = this.startsNext;
 		this.startsNext = false;
