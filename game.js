@@ -53,6 +53,7 @@ function Game(code, host) {
 	}
 
 	this.leave = function(player) {
+		player.client.send({ type: 'codeplease' });
 		if (this.players.filter(p => !p.disconnected).length == 1) {
 			this.finished = true;
 		} else {
@@ -75,7 +76,7 @@ function Game(code, host) {
 				players: this.players.map(p => {
 					return {
 						id: p.id,
-						name: p.client.name,
+						name: p.name,
 						score: p.score
 					};
 				})
@@ -277,7 +278,7 @@ function Game(code, host) {
 
 		this.gameStart();
 
-		this.chat('It\'s ' + this.players[this.turn].client.name + '\'s turn!');
+		this.chat('It\'s ' + this.players[this.turn].name + '\'s turn!');
 		this.broadcastTurn();
 	}
 
@@ -392,13 +393,13 @@ function Game(code, host) {
 				} else {
 					this.players.forEach(p => {
 						var bonus = p.calculateBonuses();
-						this.chat(p.client.name + ' SCORES ' + bonus + ' BONUS POINTS!');
+						this.chat(p.name + ' SCORES ' + bonus + ' BONUS POINTS!');
 					});
 					var bestScore = Math.max(...this.players.map(p => p.score));
 					var bestPlayer = this.players.filter(p => p.score == bestScore)[0];
 					this.broadcastPlayerlist();
 					this.broadcastTiles();
-					this.chat(bestPlayer.client.name + ' WINS WITH ' + bestScore + ' POINTS!');
+					this.chat(bestPlayer.name + ' WINS WITH ' + bestScore + ' POINTS!');
 					this.chat('The game will end in 60 seconds');
 
 					setTimeout(() => {
@@ -429,7 +430,7 @@ function Player(client) {
 	this.isTurn = false;
 	this.startsNext = false;
 	this.disconnected = false;
-	this.name = '';
+	this.name = client.name;
 	client.player = this;
 
 	this.pattern = [
