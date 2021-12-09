@@ -526,9 +526,8 @@ function render(timestamp) {
         }
     }
 
-    function drawPrompt(x, y, width, height, text, type, cb) {
-        var unit = height / 4;
-        var textunit = width / text.length;
+    function drawPrompt(x, y, width, height, elements) {
+        var unit = height / (2*(1+elements.length));
         var tilesWide = Math.ceil(width/unit);
         
         drawSprite('ui', 0, 0, x, y, unit, unit, 0, 0.2);
@@ -537,37 +536,47 @@ function render(timestamp) {
         }
         drawSprite('ui', 2, 0, x+(tilesWide*unit), y, unit, unit, 0, 0.2);
 
-        drawSprite('ui', 0, 1, x, y+unit, unit, unit, 0, 0.2);
-        for(var c = 1; c < tilesWide; c++) {
-            drawSprite('ui', 1, 1, x+(c*unit), y+unit, unit, unit, 0, 0.2);
-        }
-        drawSprite('ui', 2, 1, x+(tilesWide*unit), y+unit, unit, unit, 0, 0.2);
+        elements.forEach((e, i) => {
+            var yval1 = y + ((i+1)*unit);
+            var yval2 = y + ((i+2)*unit);
 
-        // draw text here
-        drawText(x+unit, y+unit, textunit, width, text, 0.15, false);
+            var text = e.text;
+            var type = e.type;
+            var cb = e.cb;
+            var textunit = width / text.length;
 
-        if (type == 'text') {
-            drawSprite('ui', 0, 2, x, y+(2*unit), unit, unit, 0, 0.2);
+            drawSprite('ui', 0, 1, x, yval1, unit, unit, 0, 0.2);
             for(var c = 1; c < tilesWide; c++) {
-                drawSprite('ui', 1, 2, x+(c*unit), y+(2*unit), unit, unit, 0, 0.2);
+                drawSprite('ui', 1, 1, x+(c*unit), yval1, unit, unit, 0, 0.2);
             }
-            drawSprite('ui', 2, 2, x+(tilesWide*unit), y+(2*unit), unit, unit, 0, 0.2);
+            drawSprite('ui', 2, 1, x+(tilesWide*unit), yval1, unit, unit, 0, 0.2);
 
-            // draw input here
-            drawText(x+unit, y+(2*unit), textunit, width, cb(), 0.15, fractionOfSecond < 0.5);
-        }
+            // draw text here
+            drawText(x+unit, yval1, textunit, width, text, 0.15, false);
 
-        if (type == 'button') {
-            drawSprite('ui', 0, 3, x, y+(2*unit), unit, unit, 0, 0.2);
-            for(var c = 1; c < tilesWide; c++) {
-                drawSprite('ui', 1, 3, x+(c*unit), y+(2*unit), unit, unit, 0, 0.2);
+            if (type == 'text') {
+                drawSprite('ui', 0, 2, x, yval2, unit, unit, 0, 0.2);
+                for(var c = 1; c < tilesWide; c++) {
+                    drawSprite('ui', 1, 2, x+(c*unit), yval2, unit, unit, 0, 0.2);
+                }
+                drawSprite('ui', 2, 2, x+(tilesWide*unit), yval2, unit, unit, 0, 0.2);
+
+                // draw input here
+                drawText(x+unit, yval2, textunit, width, cb(), 0.15, fractionOfSecond < 0.5);
             }
-            drawSprite('ui', 2, 3, x+(tilesWide*unit), y+(2*unit), unit, unit, 0, 0.2);
 
-            drawText(x+unit, y+(2*unit), textunit, width, 'START', 0.15);
+            if (type == 'button') {
+                drawSprite('ui', 0, 3, x, yval2, unit, unit, 0, 0.2);
+                for(var c = 1; c < tilesWide; c++) {
+                    drawSprite('ui', 1, 3, x+(c*unit), yval2, unit, unit, 0, 0.2);
+                }
+                drawSprite('ui', 2, 3, x+(tilesWide*unit), yval2, unit, unit, 0, 0.2);
 
-            cb(x+(unit/2), y+(1.5*unit), tilesWide*unit, unit);
-        }
+                drawText(x+unit, yval2, textunit, width, e.buttonText, 0.15);
+
+                cb(x, yval2, tilesWide*unit, unit, unit);
+            }
+        });
 
         drawSprite('ui', 0, 4, x, y+(3*unit), unit, unit, 0, 0.2);
         for(var c = 1; c < tilesWide; c++) {
@@ -593,7 +602,7 @@ function render(timestamp) {
     
                     var from = extractDisplayValue(t.oldposition);
                     var to = extractDisplayValue(t.position);
-    
+
                     if (lerp == 1 || (from.x == to.x && from.y == to.y)) {
                         t.oldposition = null;
                         t.startTime = null;
@@ -1002,30 +1011,62 @@ function render(timestamp) {
     }
 
     if (showNamebox) {
-        drawPrompt(canvas.width/4, canvas.height/3, canvas.width/2, canvas.height/3, 'Please enter your name', 'text', () => {
-            return playerName;
-        });
+        drawPrompt(canvas.width/4, canvas.height/3, canvas.width/2, canvas.height/3, [{
+            text: 'Please enter your name',
+            type: 'text',
+            cb: () => {
+                return playerName;
+            }
+        }]);
     }
 
     if (showJoinUI) {
-        drawPrompt(canvas.width/4, canvas.height/3, canvas.width/2, canvas.height/3, 'Please enter a game code', 'text', () => {
-            return joinCode;
-        });
+        drawPrompt(canvas.width/4, canvas.height/3, canvas.width/2, canvas.height/3, [{
+            text: 'Please enter a game code',
+            type: 'text',
+            cb: () => {
+                return joinCode;
+            }
+        }]);
     }
 
-    if (showHostUI) {
-        drawPrompt(canvas.width/4, canvas.height/3, canvas.width/2, canvas.height/3, 'Click to start', 'button', (x, y, w, h) => {
-            if (click && click.x > x && click.x < (x+w) && click.y > y && click.y < (y+h)) {
-                sendMessage({
-                    type: 'start'
-                });
-                showHostUI = false;
+    if (showHostUI && !showMenuUI) {
+        drawPrompt(canvas.width/4, canvas.height/3, canvas.width/2, canvas.height/3, [{
+            text: 'Click to start',
+            type: 'button',
+            buttonText: 'Start',
+            cb: (x, y, w, h, u) => {
+                x -= u/2;
+                y -= u/2;
+                if (click && click.x > x && click.x < (x+w) && click.y > y && click.y < (y+h)) {
+                    sendMessage({
+                        type: 'start'
+                    });
+                    showHostUI = false;
+                }
             }
-        }, click);
+        }]);
     }
 
     if (showMenuUI) {
-
+        drawPrompt(canvas.width/4, canvas.height/3, canvas.width/2, canvas.height/3, [
+            {
+                text: 'Leave the game?',
+                type: 'button',
+                buttonText: 'Leave',
+                cb: (x, y, w, h, u) => {
+                    x -= u/2;
+                    y -= u/2;
+                    if (click && click.x > x && click.x < (x+w) && click.y > y && click.y < (y+h)) {
+                        sendMessage({
+                            type: 'leave'
+                        });
+                        showMenuUI = false;
+                        showHostUI = false;
+                    }
+                }
+            }
+        ])
     }
 
     if (lobbyName) {
@@ -1033,7 +1074,12 @@ function render(timestamp) {
         drawText(canvas.width - (lobbyName.length * 11), 11, 11, lobbyName.length*11, lobbyName, 0.2);
 
         // put menu somewhere
-        drawSprite('ui', 0, 5, canvas.width - playerTileSize, canvas.height - playerTileSize, playerTileSize, playerTileSize, 0, 0.2);
+        var x = canvas.width - playerTileSize;
+        var y = canvas.height - playerTileSize;
+        drawSprite('ui', 0, 5, x, y, playerTileSize, playerTileSize, 0, 0.2);
+        if(click && Math.hypot(x - click.x, y - click.y) < (playerTileSize*0.7)) {
+            showMenuUI = !showMenuUI;
+        }
     }
 
     drawScene(gl, programInfo, calls);
@@ -1106,6 +1152,9 @@ function touchDown(e) {
                 type: 'join',
                 data: joinCode
             });
+            tiles = [];
+            boards = [];
+            factories = [];
             joinCode = '';
             showJoinUI = false;
         }
@@ -1136,6 +1185,9 @@ function keyDown(e) {
             type: 'join',
             data: joinCode
         });
+        tiles = [];
+        boards = [];
+        factories = [];
         joinCode = '';
         showJoinUI = false;
     }

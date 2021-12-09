@@ -52,6 +52,21 @@ function Game(code, host) {
 		}
 	}
 
+	this.leave = function(player) {
+		if (this.players.length == 1) {
+			this.finished = true;
+		} else {
+			if (player.isAdmin && !this.started) {
+				// reassign admin
+				var newAdmin = this.players.filter(p => p != player)[0];
+				newAdmin.isAdmin = true;
+				newAdmin.sendHost();
+			}
+			player.client.player = null;
+			player.client = null;
+		}
+	}
+
 	this.broadcastPlayerlist = function() {
 		this.broadcast({
 			type: 'playerlist',
@@ -408,6 +423,8 @@ function Player(client) {
 	this.client = client;
 	this.isTurn = false;
 	this.startsNext = false;
+	this.disconnected = false;
+	this.name = '';
 	client.player = this;
 
 	this.pattern = [
@@ -430,6 +447,7 @@ function Player(client) {
 	this.setClient = function (client) {
 		this.client = client;
 		this.client.player = this;
+		this.name = client.name;
 	};
 
 	this.setGame = function (game) {
@@ -437,12 +455,12 @@ function Player(client) {
 	}
 
 	this.chat = function(message) {
-		console.log('chat', this.client.name + ': ' + message);
-		this.game.chat(this.client.name + ': ' + message);
+		console.log('chat', this.name + ': ' + message);
+		this.game.chat(this.name + ': ' + message);
 	}
 
 	this.command = function(data) {
-		console.log('command', this.client.name, data, this.isTurn);
+		console.log('command', this.name, data, this.isTurn);
 		if (this.isTurn) {
 			var colour = NAMETOCOLOURID[data.colour];
 			if(this.pick(colour, data.zone, data.destination)) {
@@ -458,6 +476,11 @@ function Player(client) {
 		}
 	}
 
+	this.leave = function() {
+		this.game.leave(this);
+	}
+
+
 	this.state = function() {
 		this.game.broadcaststate(this);
 		this.sendId();
@@ -468,27 +491,29 @@ function Player(client) {
 	}
 
 	this.sendLobbyId = function() {
-		this.client.send({
+		this.send({
 			type: 'lobby',
 			data: this.game.id
 		});
 	}
 
 	this.sendId = function() {
-		this.client.send({
+		this.send({
 			type: 'playerid',
 			data: this.id
 		})
 	}
 
 	this.sendHost = function() {
-		this.client.send({
+		this.send({
 			type: 'host'
 		})
 	}
-
+	
 	this.send = function(message) {
-		this.client.send(message)
+		if (this.client) {
+			this.client.send(message)
+		}
 	}
 
 	this.validatePlacement = function(colour, y) {

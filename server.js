@@ -79,6 +79,11 @@ function parseMessage(m, client) {
                 client.send({ type: 'codeplease' });
             }
             break;
+        case 'leave':
+            if (client.player) {
+                client.player.leave();
+            }
+            break;
         case 'command':
             if (client.player) {
                 client.player.command(message.data);
@@ -106,8 +111,10 @@ setInterval(() => {
         if (game.finished) {
             game.players.forEach(p => {
                 var c = p.client;
-                c.player = null;
-                c.send({ type: 'codeplease' });
+                if (c) {
+                    c.player = null;
+                    c.send({ type: 'codeplease' });
+                }
             });
             delete games[g];
         }
