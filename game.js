@@ -53,7 +53,7 @@ function Game(code, host) {
 	}
 
 	this.leave = function(player) {
-		if (this.players.length == 1) {
+		if (this.players.filter(p => !p.disconnected).length == 1) {
 			this.finished = true;
 		} else {
 			if (player.isAdmin && !this.started) {
@@ -64,6 +64,7 @@ function Game(code, host) {
 			}
 			player.client.player = null;
 			player.client = null;
+			player.disconnected = true;
 		}
 	}
 
@@ -406,6 +407,10 @@ function Game(code, host) {
 				}
 			}, 2000);
 			
+		}
+
+		if (this.players[this.turn].disconnected) {
+			this.next();
 		}
 	}
 
