@@ -537,8 +537,8 @@ function render(timestamp) {
         drawSprite('ui', 2, 0, x+(tilesWide*unit), y, unit, unit, 0, 0.2);
 
         elements.forEach((e, i) => {
-            var yval1 = y + ((i+1)*unit);
-            var yval2 = y + ((i+2)*unit);
+            var yval1 = y + (((2*i)+1)*unit);
+            var yval2 = y + (((2*i)+2)*unit);
 
             var text = e.text;
             var type = e.type;
@@ -578,11 +578,14 @@ function render(timestamp) {
             }
         });
 
-        drawSprite('ui', 0, 4, x, y+(3*unit), unit, unit, 0, 0.2);
+
+        var yvalBottom = y+ (((elements.length*2)+1)*unit);
+
+        drawSprite('ui', 0, 4, x, yvalBottom, unit, unit, 0, 0.2);
         for(var c = 1; c < tilesWide; c++) {
-            drawSprite('ui', 1, 4, x+(c*unit), y+(3*unit), unit, unit, 0, 0.2);
+            drawSprite('ui', 1, 4, x+(c*unit), yvalBottom, unit, unit, 0, 0.2);
         }
-        drawSprite('ui', 2, 4, x+(tilesWide*unit), y+(3*unit), unit, unit, 0, 0.2);
+        drawSprite('ui', 2, 4, x+(tilesWide*unit), yvalBottom, unit, unit, 0, 0.2);
     }
 
     function computeTilePositions(tiles) {
@@ -1063,6 +1066,18 @@ function render(timestamp) {
                         });
                         showMenuUI = false;
                         showHostUI = false;
+                    }
+                }
+            },
+            {
+                text: 'Close the menu button just for Dylan',
+                type: 'button',
+                buttonText: 'Close',
+                cb: (x, y, w, h, u) => {
+                    x -= u/2;
+                    y -= u/2;
+                    if (click && click.x > x && click.x < (x+w) && click.y > y && click.y < (y+h)) {
+                        showMenuUI = false;
                     }
                 }
             }
