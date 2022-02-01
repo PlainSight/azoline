@@ -483,7 +483,9 @@ function Player(client) {
 	}
 
 	this.leave = function() {
-		this.game.leave(this);
+		if (this.game) {
+			this.game.leave(this);
+		}
 	}
 
 
