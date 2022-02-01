@@ -1,11 +1,3 @@
-var COLOURS = [
-	['blue', 'orange', 'red', 'black', 'teal'],
-	['teal', 'blue', 'orange', 'red', 'black'],
-	['black', 'teal', 'blue', 'orange', 'red'],
-	['red', 'black', 'teal', 'blue', 'orange'],
-	['orange', 'red', 'black', 'teal', 'blue']
-];
-
 var NAMETOCOLOURID = {
 	'black': 0, 
 	'teal': 1,
