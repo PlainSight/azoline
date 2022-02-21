@@ -477,6 +477,11 @@ function render(timestamp) {
         var position = 0;
         var line = 0;
         for(var i = 0; i < text.length; i++) {
+            if (text[i] == '\n') {
+                position = 0;
+                line++;
+                continue;
+            }
             if (w*position > maxWidth) {
                 position = 0;
                 line++;
@@ -1004,10 +1009,11 @@ function render(timestamp) {
     var top = canvas.height/2;
     var unit = canvas.height/20;
     var j = 0;
-    for (var i = Math.max(0, chatlog.length - 8); i < chatlog.length; i++) {
-        drawText(unit, top + unit + (j*unit), unit*0.8, canvas.width/2, chatlog[i].message, 0.3);
-        j++;
-    }
+    var allText = chatlog.filter((cl, i) => i >= Max(0, chatlog.length - 8)).reduce((a, c) => {
+        return a + '\n' + c;
+    }, '');
+
+    drawText(unit, top + unit, unit*0.8, canvas.width/2, allText, 0.3);
 
     if (showChatbox) {
         drawText(unit, top + (9*unit), unit*0.8, canvas.width/2, ':' + chat, 0.3, fractionOfSecond < 0.5);
