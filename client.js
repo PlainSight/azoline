@@ -40,27 +40,33 @@ function processMessage(m) {
     switch (message.type) {
         case 'text':
             chatlog.push({ message: message.data, age: Date.now() });
+            updateDisplay(1);
             break;
         case 'cookie':
             localStorage.setItem('azoline0.1', message.data.cookie);
             break;
         case 'nameplease':
             showNamebox = true;
+            updateDisplay(1);
             break;
         case 'codeplease':
             joinCode = '';
             showJoinUI = true;
+            updateDisplay(1);
             break;
         case 'lobby':
             lobbyName = message.data;
+            updateDisplay(1);
             break;
         case 'host':
             showHostUI = true;
+            updateDisplay(1);
             break;
         case 'turn':
             this.boards.forEach(b => {
                 b.turn = (b.id == message.data);
             });
+            updateDisplay(1);
             break;
         case 'factories':
             if (message.data.count != factories.length) {
@@ -69,6 +75,7 @@ function processMessage(m) {
                     factories.push({});
                 };
             }
+            updateDisplay(1);
             break;
         case 'tiles': 
             var newTiles = [];
@@ -77,7 +84,7 @@ function processMessage(m) {
                 var existingTile = tiles.filter(t => t.id == tileUpdate.id)[0];
 
                 var delay = 0;
-                var transitionTime = 1000;
+                var transitionTime = 750 + (Math.random() * 750);
                 var newPosition = null;
                 // calculate position
                 switch (tileUpdate.position.type) {
@@ -105,7 +112,7 @@ function processMessage(m) {
                         var board = boards.filter(b => b.id == tileUpdate.position.playerId)[0];
                         newPosition = board.grid[tileUpdate.position.y][tileUpdate.position.x];
                         delay = tileUpdate.position.y * 500;
-                        transitionTime = 500;
+                        transitionTime = 750;
                         break;
                 }
 
@@ -134,12 +141,15 @@ function processMessage(m) {
                 }
             }
             tiles = newTiles;
+            updateDisplay(1, Date.now() + 2000);
             break;
         case 'playerlist':
             boards = message.data.players.map(p => NewBoard(p.id, p.name, p.score));
+            updateDisplay(1);
             break;
         case 'playerid':
             playerId = message.data;
+            updateDisplay(1);
             break;
     }
 }
@@ -452,6 +462,20 @@ var tiles = [];
 var middle = {};
 var lid = {};
 var bag = {};
+var framesToAnimate = 0;
+var animateUntil = Date.now();
+var stoppedRendering = false;
+
+function updateDisplay(x, optionalTime) {
+    framesToAnimate += x;
+    if (optionalTime) {
+        animateUntil = optionalTime;
+    }
+    if (stoppedRendering) {
+        stoppedRendering = false;
+        window.requestAnimationFrame(render);
+    }
+}
 
 function render(timestamp) {
     var now = Date.now();
@@ -568,6 +592,9 @@ function render(timestamp) {
 
                 // draw input here
                 drawText(x+unit, yval2, textunit, width, cb(), 0.15, fractionOfSecond < 0.5);
+                if (framesToAnimate < 1) {
+                    framesToAnimate++;
+                }
             }
 
             if (type == 'button') {
@@ -606,7 +633,7 @@ function render(timestamp) {
             if (t.position.display != null) {
                 if (t.oldposition && t.oldposition.display && t.startTime && t.r1 && t.r2) {
                     // lerp between origin and destination
-                    var lerp = Math.max(Math.min(1, (now - t.startTime) / 1000), 0);
+                    var lerp = Math.max(Math.min(1, (now - t.startTime) / t.transitionTime), 0);
     
                     var from = extractDisplayValue(t.oldposition);
                     var to = extractDisplayValue(t.position);
@@ -1009,14 +1036,17 @@ function render(timestamp) {
     var top = canvas.height/2;
     var unit = canvas.height/20;
     var j = 0;
-    var allText = chatlog.filter((cl, i) => i >= Max(0, chatlog.length - 8)).reduce((a, c) => {
-        return a + '\n' + c;
+    var allText = chatlog.filter((cl, i) => i >= Math.max(0, chatlog.length - 8)).reduce((a, c) => {
+        return a + '\n' + c.message;
     }, '');
 
     drawText(unit, top + unit, unit*0.8, canvas.width/2, allText, 0.3);
 
     if (showChatbox) {
         drawText(unit, top + (9*unit), unit*0.8, canvas.width/2, ':' + chat, 0.3, fractionOfSecond < 0.5);
+        if (framesToAnimate < 1) {
+            framesToAnimate++;
+        }
     }
 
     if (showNamebox) {
@@ -1104,7 +1134,15 @@ function render(timestamp) {
     }
 
     drawScene(gl, programInfo, calls);
-    window.requestAnimationFrame(render);
+
+    if(framesToAnimate > 0 || animateUntil > now) {
+        if (framesToAnimate > 0) {
+            framesToAnimate--;
+        }
+        window.requestAnimationFrame(render);
+    } else {
+        stoppedRendering = true;
+    }
 }
 
 canvas.width = Math.floor(canvasDimensions.width);
@@ -1114,6 +1152,7 @@ window.addEventListener('resize', (e) => {
     var canvasDimensions = canvas.getBoundingClientRect();
     canvas.width = Math.floor(canvasDimensions.width);
     canvas.height = Math.floor(canvasDimensions.height);
+    updateDisplay(1);
 });
 
 var cursorX = 256;
@@ -1147,6 +1186,7 @@ var joinCode = '';
 function updateCursorPosition(e) {
     cursorX = e.x;
     cursorY = e.y;
+    updateDisplay(1);
 }
 
 function mouseDown(e) {
@@ -1154,6 +1194,7 @@ function mouseDown(e) {
         //select
         clicks.push({ x: cursorX, y: cursorY });
     }
+    updateDisplay(2);
 }
 
 function touchDown(e) {
@@ -1180,6 +1221,7 @@ function touchDown(e) {
             showJoinUI = false;
         }
     }
+    updateDisplay(2);
 }
 
 function keyDown(e) {
@@ -1245,6 +1287,7 @@ function keyDown(e) {
             joinCode += e.key;
         }
     }
+    updateDisplay(1);
     return false;
 }
 
