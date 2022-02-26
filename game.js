@@ -272,7 +272,7 @@ function Game(code, host) {
 	}
 
 	this.startTurn = function(start) {
-		if (start) {
+		if (start != undefined) {
 			this.turn = start;
 			this.chat(this.players[this.turn].name + '  starts!');
 		} else {
