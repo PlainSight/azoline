@@ -25,6 +25,7 @@ function Game(code, host) {
 	this.bag = [];
 	this.lid = [];
 	this.factories = [];
+	this.round = 0;
 	this.middle = [];
 	this.turn = 0;
 	this.started = false;
@@ -190,8 +191,6 @@ function Game(code, host) {
 	this.gameStart = function() {
 		this.populateFactories();
 		this.broadcastTiles();
-		this.turn = Math.floor(Math.random() * this.players.length);
-		this.players[this.turn].isTurn = true;
 	}
 
 	this.populateFactories = function() {
@@ -269,8 +268,20 @@ function Game(code, host) {
 		}
 
 		this.gameStart();
+		this.startTurn(Math.floor(Math.random() * this.players.length));
+	}
 
-		this.chat('It\'s ' + this.players[this.turn].name + '\'s turn!');
+	this.startTurn = function(start) {
+		if (start) {
+			this.turn = start;
+			this.chat(this.players[this.turn].name + '  starts!');
+		} else {
+			this.turn++;
+			this.turn = this.turn % this.players.length;
+			this.players[this.turn].isTurn = true;
+		}
+		this.players[this.turn].isTurn = true;
+
 		this.broadcastTurn();
 	}
 
@@ -338,7 +349,8 @@ function Game(code, host) {
 						colour: t.colour,
 						position: serializePosition(t.position)
 					}
-				})
+				}),
+				round: this.round
 			}
 		})
 	}
@@ -354,13 +366,11 @@ function Game(code, host) {
 		// check if the round is ending.
 		if (this.factories.filter(f => f.length > 0).length > 0 || this.middle.length > 0) {
 			// keep playing
-			this.turn++;
-			this.turn = this.turn % this.players.length;
-			this.players[this.turn].isTurn = true;
-			this.broadcastTurn();
+			this.startTurn();
 			this.broadcastTiles();
 		} else {
 			this.broadcastTiles();
+			this.round++;
 
 			setTimeout(() => {
 				// new round
@@ -374,13 +384,11 @@ function Game(code, host) {
 				var gameEnding = roundResults.filter(rr => rr.res.endingGame).length > 0;
 
 				var nextPlayer = roundResults.filter(rr => rr.res.startsNext == true)[0].player;
-				this.turn = this.players.indexOf(nextPlayer);
 
 				if (!gameEnding) {
 					this.populateFactories();
 					this.broadcastPlayerlist();
-					this.players[this.turn].isTurn = true;
-					this.broadcastTurn();
+					this.startTurn(this.players.indexOf(nextPlayer));
 					this.broadcastTiles();
 				} else {
 					this.players.forEach(p => {
@@ -423,6 +431,7 @@ function Player(client) {
 	this.startsNext = false;
 	this.disconnected = false;
 	this.name = client.name;
+	this.timedOut = false;
 	client.player = this;
 
 	this.pattern = [

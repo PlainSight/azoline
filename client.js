@@ -126,6 +126,9 @@ function processMessage(m) {
                 } else {
                     if (newTile.position != existingTile.position || existingTile.position == middle) {
                         if (existingTile.position == middle) {
+                            if (newTile.position != middle) {
+                                delete middleClaims[existingTile.id];
+                            }
                             newTile.oldposition = { display: existingTile.display };
                         } else {
                             newTile.oldposition = existingTile.position;
@@ -141,7 +144,8 @@ function processMessage(m) {
                 }
             }
             tiles = newTiles;
-            updateDisplay(1, Date.now() + 2000);
+            round = message.data.round;
+            updateDisplay(1, Date.now() + 2800);
             break;
         case 'playerlist':
             boards = message.data.players.map(p => NewBoard(p.id, p.name, p.score));
@@ -190,10 +194,7 @@ var fsSource = `
 
     void main() {
         vec4 color = texture2D(uTexture, vTexcoord);
-        if (color.r > 0.24 && color.r < 0.26 && color.g > 0.24 && color.g < 0.26 && color.b > 0.24 && color.b < 0.26) {
-            if (vRecolor.r == 0.0 && vRecolor.g == 0.0 && vRecolor.b == 0.0) {
-                discard;
-            }
+        if (color.r == 0.0 && color.g == 0.0 && color.b == 0.0) {
             color.r = vRecolor.r;
             color.g = vRecolor.g;
             color.b = vRecolor.b;
@@ -459,7 +460,9 @@ function NewBoard(id, name, score) {
 var factories = [];
 var boards = [];
 var tiles = [];
+var round = 0;
 var middle = {};
+var middleClaims = {};
 var lid = {};
 var bag = {};
 var framesToAnimate = 0;
@@ -497,7 +500,7 @@ function render(timestamp) {
         draw(sheet, sx, sy, dim, dim, dx, dy, w, h, angle, z, color);
     }
 
-    function drawText(x, y, w, maxWidth, text, z, drawCursor) {
+    function drawText(x, y, w, maxWidth, text, z, drawCursor, highlight) {
         var position = 0;
         var line = 0;
         for(var i = 0; i < text.length; i++) {
@@ -546,7 +549,7 @@ function render(timestamp) {
                 valid = true;
             }
             if (valid) {
-                drawSprite('font2', spriteX, spriteY, x+(position*w), y+(line*w), w, w, 0, z || 0.35);
+                drawSprite('font2', spriteX, spriteY, x+(position*w), y+(line*w), w, w, 0, z || 0.35, highlight ? 'green' : 'black');
             }
             position++;
         }
@@ -621,9 +624,10 @@ function render(timestamp) {
     }
 
     function computeTilePositions(tiles) {
-        function extractDisplayValue(position) {
-            if (position.display.tiles) {
-                return position.display.tiles.shift();
+        function extractDisplayValue(position, id) {
+            if (position.display.claim) {
+                var claimed = position.display.claim(id);
+                return claimed;
             } else {
                 return position.display;
             }
@@ -635,8 +639,8 @@ function render(timestamp) {
                     // lerp between origin and destination
                     var lerp = Math.max(Math.min(1, (now - t.startTime) / t.transitionTime), 0);
     
-                    var from = extractDisplayValue(t.oldposition);
-                    var to = extractDisplayValue(t.position);
+                    var from = extractDisplayValue(t.oldposition, t.id);
+                    var to = extractDisplayValue(t.position, t.id);
 
                     if (lerp == 1 || (from.x == to.x && from.y == to.y)) {
                         t.oldposition = null;
@@ -650,11 +654,13 @@ function render(timestamp) {
         
                         var size = (from.w * (1-lerp)) + (to.w * (lerp));
         
-                        t.display = { x: xy.x, y: xy.y, a: lerp*Math.PI*Math.floor(t.r1*6), w: size }
+                        var angle = ((1 - lerp) * ((from.a || 0) % (Math.PI/2))) + (lerp * ((to.a || 0) % (Math.PI/2)));
+
+                        t.display = { x: xy.x, y: xy.y, a: angle + lerp*Math.PI*Math.floor(t.r1*6), w: size, moving: true }
                     }
                 } else {
                     if (t.position) {
-                        t.display = extractDisplayValue(t.position);
+                        t.display = extractDisplayValue(t.position, t.id);
                     }
                 }
             }
@@ -732,41 +738,67 @@ function render(timestamp) {
 
         // generate mid tiles display
 
-        middle.display = { x: center.x, y: center.y, w: center.w, tiles: [] };
+        middle.display = { x: center.x, y: center.y, w: center.w, claimable: [] };
 
         var unit = maxRadiusOfFactory/2;
 
-        for(var i = 0; i < 34; i++) {
+        for(var i = 0; i < 50; i++) {
             if (i < 3) {
                 var angle = (2 * Math.PI * i) / 3 ;
                 var distance = unit/1.4;
 
-                middle.display.tiles.push({
+                middle.display.claimable.push({
                     x: center.x+(Math.sin(angle)*distance),
                     y: center.y+(Math.cos(angle)*distance),
-                    w: unit
+                    w: unit,
+                    a: round+0.5+i
                 });
             } else {
                 if (i < 9) {
                     var angle = (2 * Math.PI * (i-3)) / 6;
                     var distance = 2*unit;
     
-                    middle.display.tiles.push({
+                    middle.display.claimable.push({
                         x: center.x+(Math.sin(angle)*distance),
                         y: center.y+(Math.cos(angle)*distance),
-                        w: unit
+                        w: unit,
+                        a: round+0.5+i
                     });
                 } else {
                     var angle = (2 * Math.PI * (i-9)) / 12;
                     var distance = 3*unit;
     
-                    middle.display.tiles.push({
+                    middle.display.claimable.push({
                         x: center.x+(Math.sin(angle)*distance),
                         y: center.y+(Math.cos(angle)*distance),
-                        w: unit
+                        w: unit,
+                        a: round+0.5+i
                     });
                 }
             }
+        }
+
+        middle.display.claim = function(id) {
+            var needsClaim = !middleClaims[id];
+            if (!needsClaim) {
+                var claimIndex = middleClaims[id];
+                if (claimIndex > 1.5 * Object.keys(middleClaims).length) {
+                    // delete existing claim and find new one
+                    delete middleClaims[id];
+                    needsClaim = true;
+                }
+            } 
+            if (needsClaim) {
+                // find the lowest unclaimed value
+                var claimedValues = Object.values(middleClaims);
+                for(var i = 1; i < 50; i++) {
+                    if (!claimedValues.includes(i)) {
+                        middleClaims[id] = i;
+                        break;
+                    }
+                }
+            }
+            return this.claimable[middleClaims[id]-1];
         }
 
         var factoryAngle = 0;
@@ -774,7 +806,7 @@ function render(timestamp) {
             var fx = center.x + (Math.sin(factoryAngle) * distanceFromCenter);
             var fy = center.y + (Math.cos(factoryAngle) * distanceFromCenter);
 
-            factories[f].display = { x: fx, y: fy, w: 1.8*maxRadiusOfFactory, tiles: [] };
+            factories[f].display = { x: fx, y: fy, w: 1.8*maxRadiusOfFactory, a: 1+f, claimable: [] };
 
             var tileAngle = 0;
             for (var t = 0; t < 4; t++) {
@@ -782,13 +814,18 @@ function render(timestamp) {
                 var ty = fy + (Math.cos(tileAngle) * maxRadiusOfFactory * 0.5);
                 var sizeOfTile = maxRadiusOfFactory / 2;
 
-                factories[f].display.tiles.push({
+                factories[f].display.claimable.push({
                     x: tx,
                     y: ty,
-                    w: sizeOfTile
+                    w: sizeOfTile,
+                    a: 1+round+t+f
                 });
 
                 tileAngle += Math.PI*0.5;
+            }
+
+            factories[f].display.claim = function() {
+                return this.claimable.shift();
             }
 
             factoryAngle += angleBetween;
@@ -885,7 +922,7 @@ function render(timestamp) {
     computeTilePositions(tiles);
 
     factories.forEach(f => {
-        drawSprite('factory', 0, 0, f.display.x, f.display.y, f.display.w, f.display.w, 0, 0.6);
+        drawSprite('factory', 0, 0, f.display.x, f.display.y, f.display.w, f.display.w, f.display.a, 0.6);
     });
 
     boards.forEach(b => {
@@ -899,7 +936,7 @@ function render(timestamp) {
             drawSprite('highlight', 0, 0, f.display.x, f.display.y, f.display.w, f.display.w, 0, 0.55, 'red');
         });
         // draw text
-        drawText(b.display.name.x, b.display.name.y, b.display.name.w, b.display.name.w*8, b.turn ? ':' + b.name + ':' : b.name, 0.3, false);
+        drawText(b.display.name.x, b.display.name.y, b.display.name.w, b.display.name.w*8, b.name, 0.3, false, b.turn);
         drawText(b.display.score.x, b.display.score.y, b.display.score.w, b.display.name.w*8, b.score < 0 ? 'n'+b.score: ''+b.score, 0.3, false);
     });
 
@@ -1022,7 +1059,7 @@ function render(timestamp) {
 
     tiles.forEach(t => {
         if (t.display) {
-            drawSprite('tiles', t.colour, 0, t.display.x, t.display.y, t.display.w, t.display.w, t.display.a || 0, !!t.display.a ? 0.49 : 0.5);
+            drawSprite('tiles', t.colour, 0, t.display.x, t.display.y, t.display.w, t.display.w, t.display.a || 0, !!t.display.moving ? 0.49 : 0.5);
 
             if (t.position == highlightedPosition && t.colour == highlightedColour) {
                 drawSprite('highlight', 0, 0, t.display.x, t.display.y, t.display.w, t.display.w, t.display.a || 0, 0.45, 'green');
