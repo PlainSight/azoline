@@ -993,7 +993,7 @@ function render(timestamp) {
             var playerBoard = boards.filter(b => b.id == playerId)[0];
             playerBoard.pattern.forEach((p, pi) => {
                 p.forEach(pt => {
-                    if(Math.hypot(pt.display.x - click.x, pt.display.y - click.y) < (pt.display.w*0.7)) {
+                    if(!sentCommand && Math.hypot(pt.display.x - click.x, pt.display.y - click.y) < (pt.display.w*0.7)) {
                         // send a command
                         // determine factory
                         var factory = -1;
