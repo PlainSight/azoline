@@ -800,7 +800,7 @@ function render(timestamp) {
             var needsClaim = !middleClaims[id];
             if (!needsClaim) {
                 var claimIndex = middleClaims[id];
-                if (claimIndex > 1.5 * Object.keys(middleClaims).length) {
+                if (claimIndex > 1.5 * Object.keys(middleClaims).length && claimIndex > 5) {
                     // delete existing claim and find new one
                     delete middleClaims[id];
                     needsClaim = true;
