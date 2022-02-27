@@ -1,4 +1,4 @@
-var NAMETOCOLOURID = {
+const NAMETOCOLOURID = {
 	'black': 0, 
 	'teal': 1,
 	'blue': 2,
@@ -6,13 +6,15 @@ var NAMETOCOLOURID = {
 	'red': 4
 }
 
-var GRIDCOLOURS = [
+const GRIDCOLOURS = [
 	[2, 3, 4, 0, 1],
 	[1, 2, 3, 4, 0],
 	[0, 1, 2, 3, 4],
 	[4, 0, 1, 2, 3],
 	[3, 4, 0, 1, 2],
 ];
+
+const TURNTIME = 60000;
 
 const ALPHANUMERIC = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
@@ -281,14 +283,17 @@ function Game(code, host) {
 			this.players[this.turn].isTurn = true;
 		}
 		this.players[this.turn].isTurn = true;
-
+		this.players[this.turn].startTimer();
 		this.broadcastTurn();
 	}
 
 	this.broadcastTurn = function() {
 		this.broadcast({
 			type: 'turn',
-			data: this.players[this.turn].id
+			data: {
+				id: this.players[this.turn].id,
+				timerEnd: this.players[this.turn].timerEnd
+			}
 		});
 	}
 
@@ -400,11 +405,11 @@ function Game(code, host) {
 					this.broadcastPlayerlist();
 					this.broadcastTiles();
 					this.chat(bestPlayer.name + ' WINS WITH ' + bestScore + ' POINTS!');
-					this.chat('The game will end in 60 seconds');
+					this.chat('The game will end in 30 seconds');
 
 					setTimeout(() => {
 						this.finished = true;
-					}, 60000);
+					}, 30000);
 				}
 			}, 2000);
 			
@@ -432,6 +437,8 @@ function Player(client) {
 	this.disconnected = false;
 	this.name = client.name;
 	this.timedOut = false;
+	this.timer = null;
+	this.timerEnd = 0;
 	client.player = this;
 
 	this.pattern = [
@@ -466,12 +473,25 @@ function Player(client) {
 		this.game.chat(this.name + ': ' + message);
 	}
 
+	this.startTimer = function() {
+		var self = this;
+		this.timerEnd = Date.now() + TURNTIME;
+		this.timer = setTimeout(() => {
+			self.randomMove();
+		}, TURNTIME);
+	}
+
+	this.resetTimer = function() {
+		clearTimeout(this.timer);
+	}
+
 	this.command = function(data) {
 		console.log('command', this.name, data, this.isTurn);
 		if (this.isTurn) {
 			var colour = NAMETOCOLOURID[data.colour];
 			if(this.pick(colour, data.zone, data.destination)) {
 				this.isTurn = false;
+				this.resetTimer();
 				this.game.next();
 			}
 		}
@@ -554,6 +574,31 @@ function Player(client) {
 				this.game.moveTile(t, 'pattern', { playerId: this.id, patternRow: -1 });
 			}
 		});
+	}
+
+	this.randomMove = function() {
+		if (this.isTurn) {
+			var validZones = [];
+			this.game.factories.forEach((f, i) => {
+				if (f.length > 0) {
+					validZones.push(i);
+				}
+			});
+			if (this.game.middle.filter(t => t.colour != 5).length > 0) {
+				validZones.push(-1);
+			}
+			var pickedZone = validZones[Math.floor(Math.random() * validZones.length)];
+			if (pickedZone >= 0) {
+				var pickedTile = this.game.factories[pickedZone][Math.floor(Math.random()*4)];
+				this.pick(pickedTile.colour, pickedZone, -1);
+			} else {
+				var pickableTiles = this.game.middle.filter(t => t.colour != 5);
+				var pickedTile = pickableTiles[Math.floor(Math.random()*pickableTiles.length)];
+				this.pick(pickedTile.colour, pickedZone, -1);
+			}
+			this.resetTimer();
+			this.game.next();
+		}
 	}
 
 	this.pick = function(colour, zone, destination) {

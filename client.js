@@ -64,7 +64,10 @@ function processMessage(m) {
             break;
         case 'turn':
             this.boards.forEach(b => {
-                b.turn = (b.id == message.data);
+                b.turn = (b.id == message.data.id);
+                if (b.turn) {
+                    b.timerEnd = message.data.timerEnd;
+                }
             });
             updateDisplay(1);
             break;
@@ -394,6 +397,11 @@ function drawScene(gl, programInfo, calls) {
                 case 'green':
                     g = 1;
                     break;
+                case 'playerturn':
+                    r = 0;
+                    g = 1;
+                    b = 0;
+                    break;
                 case 'grey':
                     r = 0.5;
                     g = 0.5;
@@ -538,6 +546,11 @@ function render(timestamp) {
                 spriteY = 4;
                 valid = true;
             }
+            if (charCode == 45) {
+                spriteX = 3;
+                spriteY = 5;
+                valid = true;
+            }
             if (charCode == 47) {
                 spriteX = 1;
                 spriteY = 5;
@@ -549,7 +562,7 @@ function render(timestamp) {
                 valid = true;
             }
             if (valid) {
-                drawSprite('font2', spriteX, spriteY, x+(position*w), y+(line*w), w, w, 0, z || 0.35, highlight ? 'green' : 'black');
+                drawSprite('font2', spriteX, spriteY, x+(position*w), y+(line*w), w, w, 0, z || 0.35, highlight ? 'playerturn' : 'black');
             }
             position++;
         }
@@ -711,6 +724,11 @@ function render(timestamp) {
                 x: left + width - 3*unit,
                 y: top + unit*5,
                 w: unit*0.8
+            },
+            timer: {
+                x: left,
+                y: top + unit,
+                w: unit*0.5
             }
         }
 
@@ -935,9 +953,14 @@ function render(timestamp) {
         b.floor.forEach((f, fi) => {
             drawSprite('highlight', 0, 0, f.display.x, f.display.y, f.display.w, f.display.w, 0, 0.55, 'red');
         });
-        // draw text
+        // name
         drawText(b.display.name.x, b.display.name.y, b.display.name.w, b.display.name.w*8, b.name, 0.3, false, b.turn);
-        drawText(b.display.score.x, b.display.score.y, b.display.score.w, b.display.name.w*8, b.score < 0 ? 'n'+b.score: ''+b.score, 0.3, false);
+        // score
+        drawText(b.display.score.x, b.display.score.y, b.display.score.w, b.display.name.w*8, ''+b.score, 0.3, false);
+        if (b.turn && b.timerEnd > Date.now()) {
+            // timer
+            drawText(b.display.timer.x, b.display.timer.y, b.display.timer.w, b.display.timer.w*8, ''+Math.ceil((b.timerEnd - Date.now()) / 1000), 0.3, false);
+        }
     });
 
 
@@ -1077,7 +1100,7 @@ function render(timestamp) {
         return a + '\n' + c.message;
     }, '');
 
-    drawText(unit, top + unit, unit*0.8, canvas.width/2, allText, 0.3);
+    drawText(unit, top + unit, unit*0.5, canvas.width/2, allText, 0.3);
 
     if (showChatbox) {
         drawText(unit, top + (9*unit), unit*0.8, canvas.width/2, ':' + chat, 0.3, fractionOfSecond < 0.5);
@@ -1397,3 +1420,7 @@ setInterval(() => {
         type: 'ping'
     });
 }, 20000);
+
+setInterval(() => {
+    updateDisplay(1);
+}, 1000);
