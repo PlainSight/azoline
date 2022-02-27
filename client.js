@@ -554,7 +554,7 @@ function render(timestamp) {
             position++;
         }
         if (drawCursor) {
-            drawSprite('font2', 4, 5, x+((position)*w), y, w, w, 0, z || 0.35);
+            drawSprite('font2', 4, 5, x+((position)*w), y+(line*w), w, w, 0, z || 0.35);
         }
     }
 
@@ -1012,7 +1012,7 @@ function render(timestamp) {
                             }
                         });
                         sentCommand = true;
-                        tileClicked = false;
+                        tileClicked = null;
                     }
                 })
             });
@@ -1040,7 +1040,7 @@ function render(timestamp) {
                             }
                         });
                         sentCommand = true;
-                        tileClicked = false;
+                        tileClicked = null;
                     }
             }
         }

@@ -566,7 +566,7 @@ function Player(client) {
 		if (zone == -1) {
 			// picking from the middle
 			picked = this.game.middle.filter(t => t.colour == colour || t.colour == 5);
-			if (picked.length == 0) {
+			if (picked.filter(p => p.colour != 5).length == 0) {
 				return false;
 			}
 		} else {
