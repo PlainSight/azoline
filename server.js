@@ -32,7 +32,7 @@ function parseMessage(m, client) {
                     client.ws.send(JSON.stringify(message));
                 }
             }
-            client.send({ type: 'cookie', data: { cookie: cookie }});
+            client.send({ type: 'cookie', data: { cookie: cookie, serverTime: Date.now() }}); // also send server time so clients can store an offset to their time
             if (!client.player) {
                 client.send({ type: 'nameplease' });
             } else {

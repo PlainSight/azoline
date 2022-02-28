@@ -17,6 +17,11 @@ socket.onmessage = function(event) {
 
 var chatlog = [];
 var lobbyName = '';
+var serverOffset = 0;
+
+function serverTime() {
+    return Date.now() + serverOffset;
+}
 
 socket.onclose = function(event) {
     if (event.wasClean) {
@@ -44,6 +49,7 @@ function processMessage(m) {
             break;
         case 'cookie':
             localStorage.setItem('azoline0.1', message.data.cookie);
+            serverOffset = message.data.serverTime - Date.now();
             break;
         case 'nameplease':
             showNamebox = true;
@@ -429,6 +435,8 @@ function drawScene(gl, programInfo, calls) {
 
 var audioCtx = new window.AudioContext();
 
+var soundOn = false;
+
 async function loadAudio(src, val) {
     const response = await fetch(resourceaddress+src);
     const arrayBuffer = await response.arrayBuffer();
@@ -437,7 +445,8 @@ async function loadAudio(src, val) {
 }
 
 var sounds = [
-    'clack.ogg'
+    'clack.ogg',
+    'clack2.ogg'
 ].reduce((a, c) => {
     var val = {};
     a[c] = val;
@@ -446,6 +455,9 @@ var sounds = [
 }, {});
 
 function playTrack(name) {
+    if (!soundOn) {
+        return;
+    }
     const trackSource = audioCtx.createBufferSource();
     if (sounds[name].sound) {
         trackSource.buffer = sounds[name].sound;
@@ -686,7 +698,11 @@ function render(timestamp) {
                     if (lerp == 1 || (from.x == to.x && from.y == to.y)) {
                         if (lerp == 1) {
                             if (t.position != middle && t.position != lid && t.position && bag) {
-                                playTrack('clack.ogg');
+                                if (Math.random() < 0.5) {
+                                    playTrack('clack.ogg');
+                                } else {
+                                    playTrack('clack2.ogg');
+                                }
                             }
                         }
 
@@ -993,7 +1009,7 @@ function render(timestamp) {
         drawText(b.display.score.x, b.display.score.y, b.display.score.w, b.display.name.w*8, ''+b.score, 0.3, false);
         if (b.turn && b.timerEnd > Date.now()) {
             // timer
-            drawText(b.display.timer.x, b.display.timer.y, b.display.timer.w, b.display.timer.w*8, ''+Math.ceil((b.timerEnd - Date.now()) / 1000), 0.3, false);
+            drawText(b.display.timer.x, b.display.timer.y, b.display.timer.w, b.display.timer.w*8, ''+Math.ceil((b.timerEnd - serverTime()) / 1000), 0.3, false);
         }
     });
 
@@ -1182,7 +1198,7 @@ function render(timestamp) {
     }
 
     if (showMenuUI) {
-        drawPrompt(canvas.width/4, canvas.height/3, canvas.width/2, canvas.height/3, [
+        drawPrompt(canvas.width/4, canvas.height/8, canvas.width/2, 3*canvas.height/4, [
             {
                 text: 'Leave the game?',
                 type: 'button',
@@ -1200,7 +1216,19 @@ function render(timestamp) {
                 }
             },
             {
-                text: 'Close the menu button just for Dylan',
+                text: 'Audio         ',
+                type: 'button',
+                buttonText: soundOn ? 'Mute' : 'Unmute',
+                cb: (x, y, w, h, u) => {
+                    x -= u/2;
+                    y -= u/2;
+                    if (click && click.x > x && click.x < (x+w) && click.y > y && click.y < (y+h)) {
+                        soundOn = !soundOn;
+                    }
+                }
+            },
+            {
+                text: 'Close the menu ',
                 type: 'button',
                 buttonText: 'Close',
                 cb: (x, y, w, h, u) => {
