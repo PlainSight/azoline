@@ -161,6 +161,7 @@ function processMessage(m) {
     }
 }
 
+
 var canvas = document.getElementById('canvas');
 var gl = canvas.getContext('webgl');
 var canvasDimensions = canvas.getBoundingClientRect();
@@ -246,7 +247,7 @@ var programInfo = {
     uniformLocations: {
         resolution: gl.getUniformLocation(shaderProgram, 'uResolution')
     }
-};
+}
 
 function loadTexture(src, d, noblur)  {
     var texture = gl.createTexture();
@@ -423,6 +424,33 @@ function drawScene(gl, programInfo, calls) {
 
         var count = textureData.length / 2;
         gl.drawArrays(gl.TRIANGLES, 0, count);
+    }
+}
+
+var audioCtx = new window.AudioContext();
+
+async function loadAudio(src, val) {
+    const response = await fetch(resourceaddress+src);
+    const arrayBuffer = await response.arrayBuffer();
+    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+    val.sound = audioBuffer;
+}
+
+var sounds = [
+    'clack.ogg'
+].reduce((a, c) => {
+    var val = {};
+    a[c] = val;
+    loadAudio(c, val);
+    return a;
+}, {});
+
+function playTrack(name) {
+    const trackSource = audioCtx.createBufferSource();
+    if (sounds[name].sound) {
+        trackSource.buffer = sounds[name].sound;
+        trackSource.connect(audioCtx.destination);
+        trackSource.start();
     }
 }
 
@@ -656,6 +684,12 @@ function render(timestamp) {
                     var to = extractDisplayValue(t.position, t.id);
 
                     if (lerp == 1 || (from.x == to.x && from.y == to.y)) {
+                        if (lerp == 1) {
+                            if (t.position != middle && t.position != lid && t.position && bag) {
+                                playTrack('clack.ogg');
+                            }
+                        }
+
                         t.oldposition = null;
                         t.startTime = null;
                         t.r1 = null;
@@ -1249,11 +1283,18 @@ function updateCursorPosition(e) {
     updateDisplay(1);
 }
 
+function triggerAudio() {
+    if (audioCtx.state == 'suspended') {
+        audioCtx.resume();
+    }
+}
+
 function mouseDown(e) {
     if (e.button == 0) {
         //select
         clicks.push({ x: cursorX, y: cursorY });
     }
+    triggerAudio();
     updateDisplay(2);
 }
 
@@ -1281,6 +1322,7 @@ function touchDown(e) {
             showJoinUI = false;
         }
     }
+    triggerAudio();
     updateDisplay(2);
 }
 
