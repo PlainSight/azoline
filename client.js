@@ -1320,14 +1320,13 @@ function triggerAudio() {
 function mouseDown(e) {
     if (e.button == 0) {
         //select
-        clicks.push({ x: cursorX, y: cursorY });
+        clicks.push({ x: e.x, y: e.y });
     }
     triggerAudio();
     updateDisplay(2);
 }
 
 function touchDown(e) {
-    clicks.push({ x: e.touches[0].clientX, y: e.touches[0].clientY });
     if (showNamebox) {
         playerName = prompt('Enter your name');
         sendMessage({
@@ -1421,8 +1420,8 @@ function keyDown(e) {
     return false;
 }
 
-document.addEventListener('mousemove', updateCursorPosition, false);
-document.addEventListener('mousedown', mouseDown, false);
+document.addEventListener('pointermove', updateCursorPosition, false);
+document.addEventListener('pointerdown', mouseDown, false);
 document.addEventListener('touchstart', touchDown, false);
 document.addEventListener('keydown', keyDown, false);
 
