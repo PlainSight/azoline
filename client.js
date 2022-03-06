@@ -602,7 +602,7 @@ function render(timestamp) {
                 valid = true;
             }
             if (valid) {
-                drawSprite('font2', spriteX, spriteY, x+(position*w), y+(line*w), w, w, 0, z || 0.35, highlight ? 'playerturn' : 'black');
+                drawSprite('font2', spriteX, spriteY, x+(position*w), y+(line*w), w, w, 0, z || 0.35, highlight || 'black');
             }
             position++;
         }
@@ -1002,9 +1002,19 @@ function render(timestamp) {
         }));
         b.floor.forEach((f, fi) => {
             drawSprite('highlight', 0, 0, f.display.x, f.display.y, f.display.w, f.display.w, 0, 0.55, 'red');
+            if (b.id == playerId) {
+                var text = '-3';
+                if (fi < 4) {
+                    text = '-2';
+                    if (fi < 2) {
+                        text = '-1';
+                    }
+                }
+                drawText(f.display.x - (f.display.w/6), f.display.y, f.display.w/3, f.display.w, text, 0.55, false, 'red');
+            }
         });
         // name
-        drawText(b.display.name.x, b.display.name.y, b.display.name.w, b.display.name.w*8, b.name, 0.3, false, b.turn);
+        drawText(b.display.name.x, b.display.name.y, b.display.name.w, b.display.name.w*8, b.name, 0.3, false, b.turn ? 'playerturn' : null);
         // score
         drawText(b.display.score.x, b.display.score.y, b.display.score.w, b.display.name.w*8, ''+b.score, 0.3, false);
         if (b.turn && b.timerEnd > Date.now()) {
