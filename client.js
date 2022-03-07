@@ -993,35 +993,37 @@ function render(timestamp) {
         drawSprite('factory', 0, 0, f.display.x, f.display.y, f.display.w, f.display.w, f.display.a, 0.6);
     });
 
-    boards.forEach(b => {
-        b.pattern.forEach(pr => pr.forEach(pc => {
-            drawSprite('highlight', 0, 0, pc.display.x, pc.display.y, pc.display.w, pc.display.w, 0, 0.5, 'grey');
-        }));
-        b.grid.forEach((gr, gri) => gr.forEach((gc, gci) => {
-            drawSprite('places', COLOURS[gri][gci], 0, gc.display.x, gc.display.y, gc.display.w, gc.display.w, 0, 0.5);
-        }));
-        b.floor.forEach((f, fi) => {
-            drawSprite('highlight', 0, 0, f.display.x, f.display.y, f.display.w, f.display.w, 0, 0.55, 'red');
-            if (b.id == playerId) {
-                var text = '-3';
-                if (fi < 4) {
-                    text = '-2';
-                    if (fi < 2) {
-                        text = '-1';
+    if (boards.length && playerId != '') {
+        boards.forEach(b => {
+            b.pattern.forEach(pr => pr.forEach(pc => {
+                drawSprite('highlight', 0, 0, pc.display.x, pc.display.y, pc.display.w, pc.display.w, 0, 0.5, 'grey');
+            }));
+            b.grid.forEach((gr, gri) => gr.forEach((gc, gci) => {
+                drawSprite('places', COLOURS[gri][gci], 0, gc.display.x, gc.display.y, gc.display.w, gc.display.w, 0, 0.5);
+            }));
+            b.floor.forEach((f, fi) => {
+                drawSprite('highlight', 0, 0, f.display.x, f.display.y, f.display.w, f.display.w, 0, 0.55, 'red');
+                if (b.id == playerId) {
+                    var text = '-3';
+                    if (fi < 4) {
+                        text = '-2';
+                        if (fi < 2) {
+                            text = '-1';
+                        }
                     }
+                    drawText(f.display.x - (f.display.w/6), f.display.y, f.display.w/3, f.display.w, text, 0.55, false, 'red');
                 }
-                drawText(f.display.x - (f.display.w/6), f.display.y, f.display.w/3, f.display.w, text, 0.55, false, 'red');
+            });
+            // name
+            drawText(b.display.name.x, b.display.name.y, b.display.name.w, b.display.name.w*8, b.name, 0.3, false, b.turn ? 'playerturn' : null);
+            // score
+            drawText(b.display.score.x, b.display.score.y, b.display.score.w, b.display.name.w*8, ''+b.score, 0.3, false);
+            if (b.turn && b.timerEnd > Date.now()) {
+                // timer
+                drawText(b.display.timer.x, b.display.timer.y, b.display.timer.w, b.display.timer.w*8, ''+Math.ceil((b.timerEnd - serverTime()) / 1000), 0.3, false);
             }
         });
-        // name
-        drawText(b.display.name.x, b.display.name.y, b.display.name.w, b.display.name.w*8, b.name, 0.3, false, b.turn ? 'playerturn' : null);
-        // score
-        drawText(b.display.score.x, b.display.score.y, b.display.score.w, b.display.name.w*8, ''+b.score, 0.3, false);
-        if (b.turn && b.timerEnd > Date.now()) {
-            // timer
-            drawText(b.display.timer.x, b.display.timer.y, b.display.timer.w, b.display.timer.w*8, ''+Math.ceil((b.timerEnd - serverTime()) / 1000), 0.3, false);
-        }
-    });
+    }
 
 
     // process cursorPosition
