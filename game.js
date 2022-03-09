@@ -280,7 +280,6 @@ function Game(code, host) {
 		} else {
 			this.turn++;
 			this.turn = this.turn % this.players.length;
-			this.players[this.turn].isTurn = true;
 		}
 		this.players[this.turn].isTurn = true;
 		this.players[this.turn].startTimer();
@@ -414,10 +413,6 @@ function Game(code, host) {
 			}, 2000);
 			
 		}
-
-		if (this.players[this.turn].disconnected) {
-			this.next();
-		}
 	}
 
 	this.broadcastPlayerlist();
@@ -475,10 +470,18 @@ function Player(client) {
 
 	this.startTimer = function() {
 		var self = this;
-		this.timerEnd = Date.now() + TURNTIME;
+		var tt = TURNTIME;
+		if (this.disconnected) {
+			tt = 0;
+		} else {
+			if (this.timedOut) {
+				tt = TURNTIME / 3;
+			}
+		}
+		this.timerEnd = Date.now() + tt;
 		this.timer = setTimeout(() => {
 			self.randomMove();
-		}, TURNTIME);
+		}, tt);
 	}
 
 	this.resetTimer = function() {
@@ -491,6 +494,7 @@ function Player(client) {
 			var colour = NAMETOCOLOURID[data.colour];
 			if(this.pick(colour, data.zone, data.destination)) {
 				this.isTurn = false;
+				this.timedOut = false;
 				this.resetTimer();
 				this.game.next();
 			}
@@ -596,6 +600,8 @@ function Player(client) {
 				var pickedTile = pickableTiles[Math.floor(Math.random()*pickableTiles.length)];
 				this.pick(pickedTile.colour, pickedZone, -1);
 			}
+			this.isTurn = false;
+			this.timedOut = true;
 			this.resetTimer();
 			this.game.next();
 		}
