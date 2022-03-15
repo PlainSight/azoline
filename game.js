@@ -58,10 +58,10 @@ function Game(code, host) {
 				newAdmin.isAdmin = true;
 				newAdmin.sendHost();
 			}
-			player.client.player = null;
-			player.client = null;
-			player.disconnected = true;
 		}
+		player.client.player = null;
+		player.client = null;
+		player.disconnected = true;
 	}
 
 	this.broadcastPlayerlist = function() {
@@ -276,7 +276,7 @@ function Game(code, host) {
 	this.startTurn = function(start) {
 		if (start != undefined) {
 			this.turn = start;
-			this.chat(this.players[this.turn].name + '  starts!');
+			this.chat(this.players[this.turn].name + ' starts!');
 		} else {
 			this.turn++;
 			this.turn = this.turn % this.players.length;
@@ -367,6 +367,9 @@ function Game(code, host) {
 	}
 
 	this.next = function() {
+		if (this.finished) {
+			return;
+		}
 		// check if the round is ending.
 		if (this.factories.filter(f => f.length > 0).length > 0 || this.middle.length > 0) {
 			// keep playing
