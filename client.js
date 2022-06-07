@@ -1,7 +1,7 @@
 (function() {
     var webaddress = 'ws://localhost:7799';
     //var webaddress = 'wss://plainsightindustries.com/azolinesocket';
-    var resourceaddress = 'http://localhost:8080/';
+    var resourceaddress = 'http://localhost:8082/';
     //var resourceaddress = 'https://plainsightindustries.com/azul/';
     let socket = new WebSocket(webaddress);
 
@@ -607,12 +607,12 @@
                     valid = true;
                 }
                 if (valid) {
-                    drawSprite('font2', spriteX, spriteY, x+(position*w), y+(line*w), w, w, 0, z || 0.35, highlight || 'black');
+                    drawSprite('text20', spriteX, spriteY, x+(position*w), y+(line*w), w, w, 0, z || 0.35, highlight || 'black');
                 }
                 position++;
             }
             if (drawCursor) {
-                drawSprite('font2', 4, 5, x+((position)*w), y+(line*w), w, w, 0, z || 0.35);
+                drawSprite('text20', 4, 5, x+((position)*w), y+(line*w), w, w, 0, z || 0.35);
             }
         }
 
@@ -1312,6 +1312,44 @@
         a[name] = loadTexture(c.n, c.d, c.noblur);
         return a;
     }, {});
+
+    (function() {
+        [20, 40, 80].forEach(fs => {
+            var text = 'ABCDEFGHIJKlMNOP\nQRSTUVWXYZ\nabcdefghijklmnop\nqrstuvwxyz\n0123456789\n█/:-|';
+            var textCtx = document.createElement("canvas").getContext("2d");
+            var width = fs*16;
+            var height = fs*6;
+            textCtx.canvas.width = width;
+            textCtx.canvas.height = height;
+            textCtx.font = ''+fs+'px monospace';
+            textCtx.textBaseline = 'top';
+            textCtx.fillStyle = 'black';
+            textCtx.clearRect(0, 0, textCtx.canvas.width, textCtx.canvas.height);
+            text.split('\n').forEach((l, i) => {
+                l.split('').forEach((c, j) => {
+                    textCtx.fillText(c, j * fs, i * fs);
+                })
+            })
+            var textCanvas = textCtx.canvas;
+            var textWidth  = textCanvas.width;
+            var textHeight = textCanvas.height;
+            var textTex = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, textTex);
+            gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textCanvas);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            graphics['text'+fs] = {
+                texture: textTex,
+                image: {
+                    width: textWidth,
+                    height: textHeight 
+                },
+                dim: fs
+            };
+        });
+    })();
 
     var showChatbox = false;
     var showNamebox = false;
