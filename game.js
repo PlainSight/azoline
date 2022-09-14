@@ -247,7 +247,7 @@ function Game(code, host) {
 			data: 'The game is beginning!'
 		});
 
-		this.players.sort((a, b) => Math.random()-0.5);
+		this.players = shuffle(this.players);
 
 		this.broadcastPlayerlist();
 		
