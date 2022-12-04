@@ -1,3 +1,5 @@
+var database = require('./database');
+
 const NAMETOCOLOURID = {
 	'black': 0, 
 	'teal': 1,
@@ -420,6 +422,7 @@ function Game(code, host) {
 						var bonus = p.calculateBonuses();
 						this.chat(p.name + ' SCORES ' + bonus + ' BONUS POINTS!');
 					});
+					database.RecordGame(this.id, this.players.map(p => { return { name: p.name, score: p.score };}));
 					var bestScore = Math.max(...this.players.map(p => p.score));
 					var bestPlayer = this.players.filter(p => p.score == bestScore)[0];
 					this.broadcastPlayerlist();

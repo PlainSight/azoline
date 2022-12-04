@@ -570,14 +570,14 @@
     
                     // vertices vectors with w=1 of a tile with central position 0, 0, 0
                     var vertices = [
-                        [-w/2,    w/2,   w/4, 1],// A
-                        [ w/2,    w/2,   w/4, 1],// B
-                        [ w/2,   -w/2,   w/4, 1],// C
-                        [-w/2,   -w/2,   w/4, 1],// D
-                        [-w/2,    w/2,   -w/4, 1],// E
-                        [ w/2,    w/2,   -w/4, 1],// F
-                        [ w/2,   -w/2,   -w/4, 1],// G
-                        [-w/2,   -w/2,   -w/4, 1],// H
+                        [-w/2,    w/2,   -w/4, 1],// A
+                        [ w/2,    w/2,   -w/4, 1],// B
+                        [ w/2,   -w/2,   -w/4, 1],// C
+                        [-w/2,   -w/2,   -w/4, 1],// D
+                        [-w/2,    w/2,   w/4, 1],// E
+                        [ w/2,    w/2,   w/4, 1],// F
+                        [ w/2,   -w/2,   w/4, 1],// G
+                        [-w/2,   -w/2,   w/4, 1],// H
                     ];
 
                     for(var v = 0; v < vertices.length; v++) {
@@ -1088,7 +1088,7 @@
             
                             var angle = ((1 - lerp) * ((from.a || 0) % (Math.PI/2))) + (lerp * ((to.a || 0) % (Math.PI/2)));
 
-                            t.display = { x: xy.x, y: xy.y, a: angle + lerp*Math.PI*Math.floor(t.r1*6), a2: lerp*Math.PI*Math.floor(t.r2*4), a3: lerp*Math.PI*Math.floor(t.r3*4), w: size, moving: true }
+                            t.display = { x: xy.x, y: xy.y, a: angle + lerp*Math.PI*Math.floor(t.r1*6), a2: lerp*Math.PI*Math.floor(t.r2*3), a3: lerp*Math.PI*Math.floor(t.r3*3), w: size, moving: true }
                         }
                     } else {
                         if (t.position) {
