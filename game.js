@@ -432,7 +432,7 @@ function Game(code, host) {
 
 					setTimeout(() => {
 						this.finished = true;
-					}, 30000);
+					}, 18000);
 				}
 			}, 2000);
 			
