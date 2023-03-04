@@ -1,5 +1,18 @@
 var ws = require('ws');
 var game = require('./game');
+var database = require('./database');
+var http = require('http');
+
+database.SetupDatabase();
+
+const server = http.createServer((req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.writeHead(200);
+    database.ReadGameHistory((games) => {
+        res.end(JSON.stringify(games));
+    });
+});
+server.listen(7798);
 
 const wss = new ws.Server({ port: 7799 });
 

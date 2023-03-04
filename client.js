@@ -147,6 +147,7 @@
                             newTile.transitionTime = transitionTime;
                             newTile.r1 = Math.random();
                             newTile.r2 = Math.random();
+                            newTile.r3 = Math.random();
                             newTiles.push(newTile);
                         } else {
                             newTiles.push(existingTile);
@@ -219,6 +220,105 @@
         }
     `;
 
+    // var vsFontSource = `
+    //     attribute vec2  pos;        // Vertex position
+    //     attribute vec2  tex0;       // Tex coord
+    //     attribute float scale;
+
+    //     uniform vec3 uResolution;
+    //     uniform vec2  sdf_tex_size; // Size of font texture in pixels
+    //     uniform float sdf_border_size;
+
+    //     varying vec2  tc0;
+    //     varying float doffset;
+    //     varying vec2  sdf_texel;
+    //     varying float subpixel_offset;
+    //     void main(void) {
+    //         float sdf_size = 2.0 * scale * sdf_border_size;
+    //         tc0 = tex0;
+    //         doffset = 1.0 / sdf_size;         // Distance field delta in screen pixels
+    //         sdf_texel = 1.0 / sdf_tex_size;
+    //         subpixel_offset = 0.3333 / scale; // 1/3 of screen pixel to texels
+
+    //         vec3 zeroToOne = pos / uResolution;
+    //         vec3 zeroToTwo = zeroToOne * 2.0;
+    //         vec3 clipSpace = zeroToTwo - 1.0;
+    
+    //         gl_Position = vec4(clipSpace, 1);
+    //     }
+    // `;
+
+    // var fsFontSource = `
+    //     precision mediump float;
+
+    //     uniform sampler2D font_tex;
+    //     uniform float hint_amount;
+    //     uniform float subpixel_amount;
+    //     uniform vec4  font_color;
+
+    //     varying vec2  tc0;
+    //     varying float doffset;
+    //     varying vec2  sdf_texel;
+    //     varying float subpixel_offset;
+
+    //     vec3 sdf_triplet_alpha( vec3 sdf, float horz_scale, float vert_scale, float vgrad ) {
+    //         float hdoffset = mix( doffset * horz_scale, doffset * vert_scale, vgrad );
+    //         float rdoffset = mix( doffset, hdoffset, hint_amount );
+    //         vec3 alpha = smoothstep( vec3( 0.5 - rdoffset ), vec3( 0.5 + rdoffset ), sdf );
+    //         alpha = pow( alpha, vec3( 1.0 + 0.2 * vgrad * hint_amount ) );
+    //         return alpha;
+    //     }
+
+    //     float sdf_alpha( float sdf, float horz_scale, float vert_scale, float vgrad ) {
+    //         float hdoffset = mix( doffset * horz_scale, doffset * vert_scale, vgrad );
+    //         float rdoffset = mix( doffset, hdoffset, hint_amount );
+    //         float alpha = smoothstep( 0.5 - rdoffset, 0.5 + rdoffset, sdf );
+    //         alpha = pow( alpha, 1.0 + 0.2 * vgrad * hint_amount );
+    //         return alpha;
+    //     }
+
+    //     void main() {
+    //         // Sampling the texture, L pattern
+    //         float sdf       = texture2D( font_tex, tc0 ).r;
+    //         float sdf_north = texture2D( font_tex, tc0 + vec2( 0.0, sdf_texel.y ) ).r;
+    //         float sdf_east  = texture2D( font_tex, tc0 + vec2( sdf_texel.x, 0.0 ) ).r;
+
+    //         // Estimating stroke direction by the distance field gradient vector
+    //         vec2  sgrad     = vec2( sdf_east - sdf, sdf_north - sdf );
+    //         float sgrad_len = max( length( sgrad ), 1.0 / 128.0 );
+    //         vec2  grad      = sgrad / vec2( sgrad_len );
+    //         float vgrad = abs( grad.y ); // 0.0 - vertical stroke, 1.0 - horizontal one
+
+    //         if ( subpixel_amount > 0.0 ) {
+    //             // Subpixel SDF samples
+    //             vec2  subpixel = vec2( subpixel_offset, 0.0 );
+            
+    //             // For displays with vertical subpixel placement:
+    //             // vec2 subpixel = vec2( 0.0, subpixel_offset );
+            
+    //             float sdf_sp_n  = texture2D( font_tex, tc0 - subpixel ).r;
+    //             float sdf_sp_p  = texture2D( font_tex, tc0 + subpixel ).r;
+
+    //             float horz_scale  = 0.5; // Should be 0.33333, a subpixel size, but that is too colorful
+    //             float vert_scale  = 0.6;
+
+    //             vec3 triplet_alpha = sdf_triplet_alpha( vec3( sdf_sp_n, sdf, sdf_sp_p ), horz_scale, vert_scale, vgrad );
+            
+    //             // For BGR subpixels:
+    //             // triplet_alpha = triplet.bgr
+
+    //             gl_FragColor = vec4( triplet_alpha, 1.0 );
+
+    //         } else {
+    //             float horz_scale  = 1.1;
+    //             float vert_scale  = 0.6;
+                
+    //             float alpha = sdf_alpha( sdf, 1.1, 0.6, vgrad );
+    //             gl_FragColor = vec4( font_color.rgb, font_color.a * alpha );
+    //         }
+    //     }
+    // `;
+
     function initShaderProgram(gl, vs, fs) {
         var vertexShader = gl.createShader(gl.VERTEX_SHADER);
         gl.shaderSource(vertexShader, vs);
@@ -255,6 +355,154 @@
             resolution: gl.getUniformLocation(shaderProgram, 'uResolution')
         }
     }
+
+    var m4 = {
+        identity: function() {
+            return [
+                1,  0,  0,  0,
+                0,  1,  0,  0,
+                0,  0,  1,  0,
+                0,  0,  0,  1,
+            ];
+        },
+
+        translation: function(tx, ty, tz) {
+          return [
+             1,  0,  0,  0,
+             0,  1,  0,  0,
+             0,  0,  1,  0,
+             tx, ty, tz, 1,
+          ];
+        },
+       
+        xRotation: function(angleInRadians) {
+          var c = Math.cos(angleInRadians);
+          var s = Math.sin(angleInRadians);
+       
+          return [
+            1, 0, 0, 0,
+            0, c, s, 0,
+            0, -s, c, 0,
+            0, 0, 0, 1,
+          ];
+        },
+       
+        yRotation: function(angleInRadians) {
+          var c = Math.cos(angleInRadians);
+          var s = Math.sin(angleInRadians);
+       
+          return [
+            c, 0, -s, 0,
+            0, 1, 0, 0,
+            s, 0, c, 0,
+            0, 0, 0, 1,
+          ];
+        },
+       
+        zRotation: function(angleInRadians) {
+          var c = Math.cos(angleInRadians);
+          var s = Math.sin(angleInRadians);
+       
+          return [
+             c, s, 0, 0,
+            -s, c, 0, 0,
+             0, 0, 1, 0,
+             0, 0, 0, 1,
+          ];
+        },
+       
+        scaling: function(sx, sy, sz) {
+          return [
+            sx, 0,  0,  0,
+            0, sy,  0,  0,
+            0,  0, sz,  0,
+            0,  0,  0,  1,
+          ];
+        },
+
+        translate: function(m, tx, ty, tz) {
+            return m4.multiply(m, m4.translation(tx, ty, tz));
+        },
+         
+        xRotate: function(m, angleInRadians) {
+            return m4.multiply(m, m4.xRotation(angleInRadians));
+        },
+        
+        yRotate: function(m, angleInRadians) {
+            return m4.multiply(m, m4.yRotation(angleInRadians));
+        },
+        
+        zRotate: function(m, angleInRadians) {
+            return m4.multiply(m, m4.zRotation(angleInRadians));
+        },
+        
+        scale: function(m, sx, sy, sz) {
+            return m4.multiply(m, m4.scaling(sx, sy, sz));
+        },
+
+        multiply: function(a, b) {
+            var b00 = b[0 * 4 + 0];
+            var b01 = b[0 * 4 + 1];
+            var b02 = b[0 * 4 + 2];
+            var b03 = b[0 * 4 + 3];
+            var b10 = b[1 * 4 + 0];
+            var b11 = b[1 * 4 + 1];
+            var b12 = b[1 * 4 + 2];
+            var b13 = b[1 * 4 + 3];
+            var b20 = b[2 * 4 + 0];
+            var b21 = b[2 * 4 + 1];
+            var b22 = b[2 * 4 + 2];
+            var b23 = b[2 * 4 + 3];
+            var b30 = b[3 * 4 + 0];
+            var b31 = b[3 * 4 + 1];
+            var b32 = b[3 * 4 + 2];
+            var b33 = b[3 * 4 + 3];
+            var a00 = a[0 * 4 + 0];
+            var a01 = a[0 * 4 + 1];
+            var a02 = a[0 * 4 + 2];
+            var a03 = a[0 * 4 + 3];
+            var a10 = a[1 * 4 + 0];
+            var a11 = a[1 * 4 + 1];
+            var a12 = a[1 * 4 + 2];
+            var a13 = a[1 * 4 + 3];
+            var a20 = a[2 * 4 + 0];
+            var a21 = a[2 * 4 + 1];
+            var a22 = a[2 * 4 + 2];
+            var a23 = a[2 * 4 + 3];
+            var a30 = a[3 * 4 + 0];
+            var a31 = a[3 * 4 + 1];
+            var a32 = a[3 * 4 + 2];
+            var a33 = a[3 * 4 + 3];
+         
+            return [
+              b00 * a00 + b01 * a10 + b02 * a20 + b03 * a30,
+              b00 * a01 + b01 * a11 + b02 * a21 + b03 * a31,
+              b00 * a02 + b01 * a12 + b02 * a22 + b03 * a32,
+              b00 * a03 + b01 * a13 + b02 * a23 + b03 * a33,
+              b10 * a00 + b11 * a10 + b12 * a20 + b13 * a30,
+              b10 * a01 + b11 * a11 + b12 * a21 + b13 * a31,
+              b10 * a02 + b11 * a12 + b12 * a22 + b13 * a32,
+              b10 * a03 + b11 * a13 + b12 * a23 + b13 * a33,
+              b20 * a00 + b21 * a10 + b22 * a20 + b23 * a30,
+              b20 * a01 + b21 * a11 + b22 * a21 + b23 * a31,
+              b20 * a02 + b21 * a12 + b22 * a22 + b23 * a32,
+              b20 * a03 + b21 * a13 + b22 * a23 + b23 * a33,
+              b30 * a00 + b31 * a10 + b32 * a20 + b33 * a30,
+              b30 * a01 + b31 * a11 + b32 * a21 + b33 * a31,
+              b30 * a02 + b31 * a12 + b32 * a22 + b33 * a32,
+              b30 * a03 + b31 * a13 + b32 * a23 + b33 * a33,
+            ];
+          },
+
+          multiplyVec: function(a, m) {
+            return [
+                a[0]*m[0]   +   a[1]*m[4]     + a[2]*m[8]      + a[3]*m[12],     //x
+                a[0]*m[1]   +   a[1]*m[5]     + a[2]*m[9]      + a[3]*m[13],     //y
+                a[0]*m[2]   +   a[1]*m[6]     + a[2]*m[10]     + a[3]*m[14],     //z
+                //a[0]*m[3]   +   a[1]*m[7]     + a[2]*m[11]     + a[3]*m[15]     //w
+            ];
+          }
+      };
 
     function loadTexture(src, d, noblur)  {
         var texture = gl.createTexture();
@@ -306,42 +554,124 @@
             
             gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
             var positions = [];
-            function calculatePosition(x, y, w, h, z, angle) {
-                y = canvas.height - y;
-                z = z || 0.5;
+            function calculatePosition(x, y, w, h, z, angle, threed, options, debug) {
+                if (threed) {
+                    y = canvas.height - y;
+                    z = z || 0.5;
 
-                var sine = Math.sin(angle);
-                var cosine = Math.cos(angle);
-                // offset vectors
-                var w2 = -w/2; var h2 = h/2;
-                var v0 = {
-                    x: cosine*w2 + sine*h2, y: cosine*h2 - sine*w2
-                };
-                w2 = w/2; h2 = h/2;
-                var v1 = {
-                    x: cosine*w2 + sine*h2, y: cosine*h2 - sine*w2
-                }
-                w2 = w/2; h2 = -h/2;
-                var v2 = {
-                    x: cosine*w2 + sine*h2, y: cosine*h2 - sine*w2
-                }
-                w2 = -w/2; h2 = -h/2;
-                var v3 = {
-                    x: cosine*w2 + sine*h2, y: cosine*h2 - sine*w2
-                }
+                    var zRotate = -angle;
+                    var xRotate = options.a2;
+                    var yRotate = options.a3;
 
-                positions.push(
-                    x+v0.x, y+v0.y, z,
-                    x+v1.x, y+v1.y, z,
-                    x+v2.x, y+v2.y, z,
+                    var transformationMatrix = m4.translate(m4.identity(), x, y, z); 
+                    transformationMatrix = m4.zRotate(transformationMatrix, zRotate);
+                    transformationMatrix = m4.yRotate(transformationMatrix, yRotate);
+                    transformationMatrix = m4.xRotate(transformationMatrix, xRotate);
+    
+                    // vertices vectors with w=1 of a tile with central position 0, 0, 0
+                    var vertices = [
+                        [-w/2,    w/2,   -w/4, 1],// A
+                        [ w/2,    w/2,   -w/4, 1],// B
+                        [ w/2,   -w/2,   -w/4, 1],// C
+                        [-w/2,   -w/2,   -w/4, 1],// D
+                        [-w/2,    w/2,   w/4, 1],// E
+                        [ w/2,    w/2,   w/4, 1],// F
+                        [ w/2,   -w/2,   w/4, 1],// G
+                        [-w/2,   -w/2,   w/4, 1],// H
+                    ];
 
-                    x+v0.x, y+v0.y, z,
-                    x+v3.x, y+v3.y, z,
-                    x+v2.x, y+v2.y, z
-                );
+                    for(var v = 0; v < vertices.length; v++) {
+                        vertices[v] = m4.multiplyVec(vertices[v], transformationMatrix);
+                    }
+
+                    // clamp z values
+                    var minZ = Math.min(...vertices.map(v => v[2]));
+                    var maxZ = Math.max(...vertices.map(v => v[2]));
+
+                    vertices.forEach(v => {
+                        if (z == 0.49) {
+                            v[2] = 0.49 - ((v[2] - minZ) / (maxZ - minZ)) * 0.02;
+                        }
+                        if (z == 0.5) {
+                            v[2] = 0.5;
+                        }
+                    });
+
+                    var A = vertices[0];
+                    var B = vertices[1];
+                    var C = vertices[2];
+                    var D = vertices[3];
+                    var E = vertices[4];
+                    var F = vertices[5];
+                    var G = vertices[6];
+                    var H = vertices[7];
+    
+                    // triangles
+                    var triangles = [
+                        // front
+                        [ A, B, C ],
+                        [ A, D, C ],
+                        // back
+                        [ E, F, G ],
+                        [ E, H, G ],
+                        // top
+                        [ B, A, E ],
+                        [ B, F, E ],
+                        // right
+                        [ C, B, F ],
+                        [ C, G, F ],
+                        // bottom
+                        [ D, C, G ],
+                        [ D, H, G ],
+                        // left
+                        [ A, D, H ],
+                        [ A, E, H ],
+                    ];
+    
+                    triangles.forEach(t => {
+                        t.forEach(v => {
+                            positions.push(v[0], v[1], v[2]);
+                        })
+                    });
+                } else {
+                    y = canvas.height - y;
+                    z = z || 0.5;
+
+                    var sine = Math.sin(angle);
+                    var cosine = Math.cos(angle);
+                    // offset vectors
+                    var w2 = -w/2; var h2 = h/2;
+                    var v0 = {
+                        x: cosine*w2 + sine*h2, y: cosine*h2 - sine*w2
+                    };
+                    w2 = w/2; h2 = h/2;
+                    var v1 = {
+                        x: cosine*w2 + sine*h2, y: cosine*h2 - sine*w2
+                    }
+                    w2 = w/2; h2 = -h/2;
+                    var v2 = {
+                        x: cosine*w2 + sine*h2, y: cosine*h2 - sine*w2
+                    }
+                    w2 = -w/2; h2 = -h/2;
+                    var v3 = {
+                        x: cosine*w2 + sine*h2, y: cosine*h2 - sine*w2
+                    }
+    
+                    positions.push(
+                        //front
+                        x+v0.x, y+v0.y, z,
+                        x+v1.x, y+v1.y, z,
+                        x+v2.x, y+v2.y, z,
+    
+                        x+v0.x, y+v0.y, z,
+                        x+v3.x, y+v3.y, z,
+                        x+v2.x, y+v2.y, z,
+                    );
+                }
             }
-            drawCalls.forEach(dc => {
-                calculatePosition(dc[4], dc[5], dc[6], dc[7], dc[8], dc[9]);
+            var threed = k == 'tiles';
+            drawCalls.forEach((dc, i) => {
+                calculatePosition(dc[4], dc[5], dc[6], dc[7], dc[8], dc[9], threed, dc[10], i == 0);
             });
             gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
             gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
@@ -352,38 +682,74 @@
             gl.enableVertexAttribArray(programInfo.attribLocations.texturePosition);
             
             gl.bindBuffer(gl.ARRAY_BUFFER, texturePositionBuffer);
-            var textureData = new Array(drawCalls.length * 12);
+            
+            var textureData = new Array(drawCalls.length * 12 * (threed ? 6 : 1));
             for(var index = 0; index < drawCalls.length; index++) {
-                var dc = drawCalls[index];
-                var x = dc[0];
-                var y = dc[1];
-                var w = dc[2];
-                var h = dc[3];
-                var image = graphics[k].image;
-                var i = index * 12;
-                var width = image.width;
-                var height = image.height;
-                var sx = x / width;
-                var sy = y / height;
-                var ex = (x+w) / width;
-                var ey = (y+h) / height;
-                textureData[i] = sx;
-                textureData[i+1] = sy;
-
-                textureData[i+2] = ex;
-                textureData[i+3] = sy;
-
-                textureData[i+4] = ex;
-                textureData[i+5] = ey;
-
-                textureData[i+6] = sx;
-                textureData[i+7] = sy;
-
-                textureData[i+8] = sx;
-                textureData[i+9] = ey;
-
-                textureData[i+10] = ex;
-                textureData[i+11] = ey;
+                if (threed) {
+                    for (var j = 0; j < 6; j++) {
+                        var dc = drawCalls[index];
+                        var x = dc[0];
+                        var y = dc[1];
+                        var w = dc[2];
+                        var h = dc[3];
+                        var image = graphics[k].image;
+                        var i = (index * 6 * 12) + (j * 12);
+                        var width = image.width;
+                        var height = image.height;
+                        var sx = x / width;
+                        var sy = j < 2 ? 0 : 0.5;
+                        var ex = (x+w) / width;
+                        var ey = j < 2 ? ((y+h) / height) : 0.75;
+                        textureData[i] = sx;
+                        textureData[i+1] = sy;
+        
+                        textureData[i+2] = ex;
+                        textureData[i+3] = sy;
+        
+                        textureData[i+4] = ex;
+                        textureData[i+5] = ey;
+        
+                        textureData[i+6] = sx;
+                        textureData[i+7] = sy;
+        
+                        textureData[i+8] = sx;
+                        textureData[i+9] = ey;
+        
+                        textureData[i+10] = ex;
+                        textureData[i+11] = ey;
+                    }
+                } else {
+                    var dc = drawCalls[index];
+                    var x = dc[0];
+                    var y = dc[1];
+                    var w = dc[2];
+                    var h = dc[3];
+                    var image = graphics[k].image;
+                    var i = index * 12;
+                    var width = image.width;
+                    var height = image.height;
+                    var sx = x / width;
+                    var sy = y / height;
+                    var ex = (x+w) / width;
+                    var ey = (y+h) / height;
+                    textureData[i] = sx;
+                    textureData[i+1] = sy;
+    
+                    textureData[i+2] = ex;
+                    textureData[i+3] = sy;
+    
+                    textureData[i+4] = ex;
+                    textureData[i+5] = ey;
+    
+                    textureData[i+6] = sx;
+                    textureData[i+7] = sy;
+    
+                    textureData[i+8] = sx;
+                    textureData[i+9] = ey;
+    
+                    textureData[i+10] = ex;
+                    textureData[i+11] = ey;
+                }
             }
             gl.bufferData(
                 gl.ARRAY_BUFFER,
@@ -416,12 +782,9 @@
                         b = 0.5;
                         break;
                 }
-                colors.push(r, g, b);
-                colors.push(r, g, b);
-                colors.push(r, g, b);
-                colors.push(r, g, b);
-                colors.push(r, g, b);
-                colors.push(r, g, b);
+                for (var i = 0; i < 6 * (threed ? 6 : 1); i++) {
+                    colors.push(r, g, b);
+                }
             });
             gl.bufferData(
                 gl.ARRAY_BUFFER,
@@ -541,16 +904,16 @@
 
         var calls = {};
 
-        function draw(sheet, sx, sy, sw, sh, dx, dy, dw, dh, angle, z, color) {
+        function draw(sheet, sx, sy, sw, sh, dx, dy, dw, dh, angle, z, color, options) {
             calls[sheet] = calls[sheet] || [];
-            calls[sheet].push([sx, sy, sw, sh, dx, dy, dw, dh, z, angle, color]);
+            calls[sheet].push([sx, sy, sw, sh, dx, dy, dw, dh, z, angle, color, options]);
         }
 
-        function drawSprite(sheet, fx, fy, dx, dy, w, h, angle, z, color) {
+        function drawSprite(sheet, fx, fy, dx, dy, w, h, angle, z, color, options) {
             var dim = graphics[sheet].dim
             var sx = fx*dim;
             var sy = fy*dim;
-            draw(sheet, sx, sy, dim, dim, dx, dy, w, h, angle, z, color);
+            draw(sheet, sx, sy, dim, dim, dx, dy, w, h, angle, z, color, options);
         }
 
         function drawText(x, y, w, maxWidth, text, z, drawCursor, highlight) {
@@ -715,6 +1078,7 @@
                             t.startTime = null;
                             t.r1 = null;
                             t.r2 = null;
+                            t.r3 = null;
         
                             t.display = to;
                         } else {
@@ -724,7 +1088,7 @@
             
                             var angle = ((1 - lerp) * ((from.a || 0) % (Math.PI/2))) + (lerp * ((to.a || 0) % (Math.PI/2)));
 
-                            t.display = { x: xy.x, y: xy.y, a: angle + lerp*Math.PI*Math.floor(t.r1*6), w: size, moving: true }
+                            t.display = { x: xy.x, y: xy.y, a: angle + lerp*Math.PI*Math.floor(t.r1*6), a2: lerp*Math.PI*Math.floor(t.r2*3), a3: lerp*Math.PI*Math.floor(t.r3*3), w: size, moving: true }
                         }
                     } else {
                         if (t.position) {
@@ -1149,7 +1513,10 @@
 
         tiles.forEach(t => {
             if (t.display) {
-                drawSprite('tiles', t.colour, 0, t.display.x, t.display.y, t.display.w, t.display.w, t.display.a || 0, !!t.display.moving ? 0.49 : 0.5);
+                drawSprite('tiles', t.colour, 0, t.display.x, t.display.y, t.display.w, t.display.w, t.display.a || 0, !!t.display.moving ? 0.49 : 0.5, {
+                    a2: t.display.a2 || 0,
+                    a3: t.display.a3 || 0,
+                });
 
                 if (t.position == highlightedPosition && t.colour == highlightedColour) {
                     drawSprite('highlight', 0, 0, t.display.x, t.display.y, t.display.w, t.display.w, t.display.a || 0, 0.45, 'green');
