@@ -8,7 +8,8 @@ fetch(endpoint).then(response => {
 
     scores.forEach(s => {
         var date = document.createElement('div');
-        date.innerHTML = (new Date(s.completed+'Z')).toLocaleString();
+        var completed = new Date(s.completed+'Z');
+        date.innerHTML = (new Date(s.completed+'Z')).toLocaleString('en-NZ');
         date.classList.add('date');
 
         var code = document.createElement('div');
@@ -23,10 +24,13 @@ fetch(endpoint).then(response => {
         var game = document.createElement('div');
         game.classList.add('game');
         game.appendChild(dateCode);
-        s.players.sort((a, b) => b.score - a.score).forEach(p => {
+        s.players.map((p, pi) => { return { ...p, order: pi }}).sort((a, b) => b.score - a.score).forEach(p => {
             var player = document.createElement('div');
             player.classList.add('player');
             player.innerHTML = '<div class="number">'+ p.score +'</div><div class="name">' + p.name + '</div>';
+            if (completed > new Date('2023-03-12 10:30Z')) {
+                player.innerHTML += '<div class="order">' + 'order: ' + (p.order+1) + '</div>';
+            }
             game.appendChild(player);
         })
         element.appendChild(game);

@@ -290,7 +290,7 @@ function Game(code, host) {
 		}
 
 		this.gameStart();
-		this.startTurn(Math.floor(Math.random() * this.players.length));
+		this.startTurn(0);
 	}
 
 	this.startTurn = function(start) {
