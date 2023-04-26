@@ -68,7 +68,7 @@ function parseMessage(m, client) {
             break;
         case 'start': 
             if (client.player) {
-                client.player.startGame();
+                client.player.startGame((message.data || 60) * 1000);
             }
             break;
         case 'name':    // client sets their name

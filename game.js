@@ -32,6 +32,7 @@ function Game(code, host) {
 	this.round = 0;
 	this.middle = [];
 	this.turn = 0;
+	this.turnTime = TURNTIME;
 	this.started = false;
 	this.finished = false;
 
@@ -242,7 +243,8 @@ function Game(code, host) {
 		this.lid = [];
 	}
 
-	this.start = function() {
+	this.start = function(roundTime) {
+		this.turnTime = roundTime;
 		this.started = true;
 		this.broadcast({
 			type: 'text',
@@ -494,12 +496,12 @@ function Player(client) {
 
 	this.startTimer = function() {
 		var self = this;
-		var tt = TURNTIME;
+		var tt = self.game.turnTime;
 		if (this.disconnected) {
 			tt = 0;
 		} else {
 			if (this.timedOut) {
-				tt = TURNTIME / 3;
+				tt = self.game.turnTime / 3;
 			}
 		}
 		this.timerEnd = Date.now() + tt;
@@ -525,9 +527,9 @@ function Player(client) {
 		}
 	}
 
-	this.startGame = function() {
+	this.startGame = function(roundTime) {
 		if (this.isAdmin) {
-			this.game.start();
+			this.game.start(roundTime);
 		}
 	}
 

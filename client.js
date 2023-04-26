@@ -1021,6 +1021,18 @@
                     }
                 }
 
+                if (type == 'slider') {
+                    drawSprite('ui', 0, 4, x, yval2, unit, unit, 0, 0.2);
+                    for(var c = 1; c < tilesWide; c++) {
+                        drawSprite('ui', 1, 4, x+(c*unit), yval2, unit, unit, 0, 0.2);
+                    }
+                    drawSprite('ui', 2, 4, x+(tilesWide*unit), yval2, unit, unit, 0, 0.2);
+
+                    drawSprite('ui', 1, 6, x+(unit*0.5)+((tilesWide-1)*roundTimeSlider/100*unit), yval2, unit, unit, 0, 0.15);
+
+                    cb(x, yval2, tilesWide*unit, unit, unit);
+                }
+
                 if (type == 'button') {
                     drawSprite('ui', 0, 3, x, yval2, unit, unit, 0, 0.2);
                     for(var c = 1; c < tilesWide; c++) {
@@ -1037,11 +1049,11 @@
 
             var yvalBottom = y+ (((elements.length*2)+1)*unit);
 
-            drawSprite('ui', 0, 4, x, yvalBottom, unit, unit, 0, 0.2);
+            drawSprite('ui', 0, 5, x, yvalBottom, unit, unit, 0, 0.2);
             for(var c = 1; c < tilesWide; c++) {
-                drawSprite('ui', 1, 4, x+(c*unit), yvalBottom, unit, unit, 0, 0.2);
+                drawSprite('ui', 1, 5, x+(c*unit), yvalBottom, unit, unit, 0, 0.2);
             }
-            drawSprite('ui', 2, 4, x+(tilesWide*unit), yvalBottom, unit, unit, 0, 0.2);
+            drawSprite('ui', 2, 5, x+(tilesWide*unit), yvalBottom, unit, unit, 0, 0.2);
         }
 
         function computeTilePositions(tiles) {
@@ -1111,6 +1123,10 @@
             var unit = width/10;
             top += (unit/2);
             left += (unit/2);
+
+            if (!board) {
+                console.log(boards);
+            }
 
             for (var y = 0; y < 5; y++) {
                 for (var x = 0; x < y+1; x++) {
@@ -1293,25 +1309,27 @@
 
             if (boards.length && playerId != '') {
                 var playerPosition = boards.findIndex(b => b.id == playerId);
-                var numberOfOpponents = boards.length - 1;
-                var leftSideCount = Math.ceil(numberOfOpponents/2);
-                computeBoardPositions(0, canvas.height - playerBoardHeight, playerBoardWidth, playerBoardHeight, boards[playerPosition]);
-                playerTileSize = boards[playerPosition].display.score.w;
-
-                var iter = 0;
-                for(var bi = (playerPosition+1) % boards.length; bi != playerPosition; bi = ((bi+1) % boards.length)) {
-                    var xpos = 0;
-                    var ypos = 0;
-                    if (iter >= leftSideCount) {
-                        // right
-                        xpos = 1;
-                        ypos = iter - leftSideCount;
-                    } else {
-                        // left
-                        ypos = leftSideCount - (1+iter);
+                if (playerPosition >= 0) {
+                    var numberOfOpponents = boards.length - 1;
+                    var leftSideCount = Math.ceil(numberOfOpponents/2);
+                    computeBoardPositions(0, canvas.height - playerBoardHeight, playerBoardWidth, playerBoardHeight, boards[playerPosition]);
+                    playerTileSize = boards[playerPosition].display.score.w;
+    
+                    var iter = 0;
+                    for(var bi = (playerPosition+1) % boards.length; bi != playerPosition; bi = ((bi+1) % boards.length)) {
+                        var xpos = 0;
+                        var ypos = 0;
+                        if (iter >= leftSideCount) {
+                            // right
+                            xpos = 1;
+                            ypos = iter - leftSideCount;
+                        } else {
+                            // left
+                            ypos = leftSideCount - (1+iter);
+                        }
+                        computeBoardPositions(xpos*oppositionBoardWidth, ypos*oppositionBoardHeight, oppositionBoardWidth, oppositionBoardHeight, boards[bi]);
+                        iter++;
                     }
-                    computeBoardPositions(xpos*oppositionBoardWidth, ypos*oppositionBoardHeight, oppositionBoardWidth, oppositionBoardHeight, boards[bi]);
-                    iter++;
                 }
             }
             
@@ -1331,25 +1349,27 @@
 
             if (boards.length && playerId != '') {
                 var playerPosition = boards.findIndex(b => b.id == playerId);
-                var numberOfOpponents = boards.length - 1;
-                var leftSideCount = Math.ceil(numberOfOpponents/2);
-                computeBoardPositions(0, canvas.height - playerBoardHeight, playerBoardWidth, playerBoardHeight, boards[playerPosition]);
-                playerTileSize = boards[playerPosition].display.score.w;
-
-                var iter = 0;
-                for(var bi = (playerPosition+1) % boards.length; bi != playerPosition; bi = ((bi+1) % boards.length)) {
-                    var xpos = 0;
-                    var ypos = 0;
-                    if (iter >= leftSideCount) {
-                        // right
-                        xpos = 1;
-                        ypos = iter - leftSideCount;
-                    } else {
-                        // left
-                        ypos = leftSideCount - (1+iter);
+                if (playerPosition >= 0) {
+                    var numberOfOpponents = boards.length - 1;
+                    var leftSideCount = Math.ceil(numberOfOpponents/2);
+                    computeBoardPositions(0, canvas.height - playerBoardHeight, playerBoardWidth, playerBoardHeight, boards[playerPosition]);
+                    playerTileSize = boards[playerPosition].display.score.w;
+    
+                    var iter = 0;
+                    for(var bi = (playerPosition+1) % boards.length; bi != playerPosition; bi = ((bi+1) % boards.length)) {
+                        var xpos = 0;
+                        var ypos = 0;
+                        if (iter >= leftSideCount) {
+                            // right
+                            xpos = 1;
+                            ypos = iter - leftSideCount;
+                        } else {
+                            // left
+                            ypos = leftSideCount - (1+iter);
+                        }
+                        computeBoardPositions(xpos*(oppositionBoardWidth+factoryWidth), ypos*oppositionBoardHeight, oppositionBoardWidth, oppositionBoardHeight, boards[bi]);
+                        iter++;
                     }
-                    computeBoardPositions(xpos*(oppositionBoardWidth+factoryWidth), ypos*oppositionBoardHeight, oppositionBoardWidth, oppositionBoardHeight, boards[bi]);
-                    iter++;
                 }
             }
         }
@@ -1413,7 +1433,7 @@
         });
 
         var playerBoard = boards.filter(b => b.id == playerId)[0];
-        if (tileClicked) {
+        if (tileClicked && playerBoard) {
             playerBoard.pattern.forEach(p => {
                 if (p.filter(pt => {
                     return Math.hypot(pt.display.x - cursorX, pt.display.y - cursorY) < (pt.display.w*0.7);
@@ -1445,31 +1465,33 @@
             if (tileClicked) {
                 // check for destination click, if so then send command otherwise
                 var playerBoard = boards.filter(b => b.id == playerId)[0];
-                playerBoard.pattern.forEach((p, pi) => {
-                    p.forEach(pt => {
-                        if(!sentCommand && Math.hypot(pt.display.x - click.x, pt.display.y - click.y) < (pt.display.w*0.7)) {
-                            // send a command
-                            // determine factory
-                            var factory = -1;
-                            for(var i = 0; i < factories.length; i++) {
-                                if (factories[i] == tileClicked.position) {
-                                    factory = i;
+                if (playerBoard) {
+                    playerBoard.pattern.forEach((p, pi) => {
+                        p.forEach(pt => {
+                            if(!sentCommand && Math.hypot(pt.display.x - click.x, pt.display.y - click.y) < (pt.display.w*0.7)) {
+                                // send a command
+                                // determine factory
+                                var factory = -1;
+                                for(var i = 0; i < factories.length; i++) {
+                                    if (factories[i] == tileClicked.position) {
+                                        factory = i;
+                                    }
                                 }
+    
+                                sendMessage({
+                                    type: 'command',
+                                    data: {
+                                        colour: COLORMAP[tileClicked.colour],
+                                        zone: factory,
+                                        destination: pi
+                                    }
+                                });
+                                sentCommand = true;
+                                tileClicked = null;
                             }
-
-                            sendMessage({
-                                type: 'command',
-                                data: {
-                                    colour: COLORMAP[tileClicked.colour],
-                                    zone: factory,
-                                    destination: pi
-                                }
-                            });
-                            sentCommand = true;
-                            tileClicked = null;
-                        }
-                    })
-                });
+                        })
+                    });
+                }
 
                 if (!sentCommand) {
                     // check if floor row
@@ -1565,6 +1587,21 @@
 
         if (showHostUI && !showMenuUI) {
             drawPrompt(canvas.width/4, canvas.height/3, canvas.width/2, canvas.height/3, [{
+                text: 'Set time limit: ' + roundTimeSlider + 's',
+                type: 'slider',
+                cb: (x, y, w, h, u) => {
+                    x += u/2;
+                    y -= u/2;
+                    if (click && click.x > x && click.x < (x+w-u) && click.y > y && click.y < (y+h)) {
+                        var sx = click.x - x;
+                        var px = sx / (w-u);
+                        roundTimeSlider = Math.round(100*px);
+                        if (roundTimeSlider < 10) {
+                            roundTimeSlider = 10;
+                        }
+                    }
+                }
+            },{
                 text: 'Click to start',
                 type: 'button',
                 buttonText: 'Start',
@@ -1573,7 +1610,8 @@
                     y -= u/2;
                     if (click && click.x > x && click.x < (x+w) && click.y > y && click.y < (y+h)) {
                         sendMessage({
-                            type: 'start'
+                            type: 'start',
+                            data: roundTimeSlider
                         });
                         showHostUI = false;
                     }
@@ -1633,7 +1671,7 @@
             // put menu somewhere
             var x = canvas.width - playerTileSize;
             var y = canvas.height - playerTileSize;
-            drawSprite('ui', 0, 5, x, y, playerTileSize, playerTileSize, 0, 0.2);
+            drawSprite('ui', 0, 6, x, y, playerTileSize, playerTileSize, 0, 0.2);
             if(click && Math.hypot(x - click.x, y - click.y) < (playerTileSize*0.7)) {
                 showMenuUI = !showMenuUI;
             }
@@ -1688,6 +1726,7 @@
     var chat = '';
     var playerName = '';
     var joinCode = '';
+    var roundTimeSlider = 60;
 
     function updateCursorPosition(e) {
         cursorX = e.x;
