@@ -501,7 +501,7 @@ function Player(client) {
 			tt = 0;
 		} else {
 			if (this.timedOut) {
-				tt = self.game.turnTime / 3;
+				tt = Math.max(self.game.turnTime / 3, 10);
 			}
 		}
 		this.timerEnd = Date.now() + tt;
