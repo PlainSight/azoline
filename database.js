@@ -14,7 +14,6 @@ var RecordGame = function(code, players) {
 	`, {
 		$code: code
 		}, function(err) {
-		console.log(this.lastID);
 		var gameRecordId = this.lastID;
 
 		players.forEach(p => {

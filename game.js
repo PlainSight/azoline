@@ -490,7 +490,6 @@ function Player(client) {
 	}
 
 	this.chat = function(message) {
-		console.log('chat', this.name + ': ' + message);
 		this.game.chat(this.name + ': ' + message);
 	}
 
@@ -515,7 +514,6 @@ function Player(client) {
 	}
 
 	this.command = function(data) {
-		console.log('command', this.name, data, this.isTurn);
 		if (this.isTurn) {
 			var colour = NAMETOCOLOURID[data.colour];
 			if(this.pick(colour, data.zone, data.destination)) {

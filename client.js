@@ -18,6 +18,7 @@
 
     var chatlog = [];
     var lobbyName = '';
+    var skinVersion = 0;
     var serverOffset = 0;
 
     function serverTime() {
@@ -63,6 +64,11 @@
                 break;
             case 'lobby':
                 lobbyName = message.data;
+                if (lobbyName.endsWith('2')) {
+                    skinVersion = 1;
+                } else {
+                    skinVersion = 0;
+                }
                 updateDisplay(1);
                 break;
             case 'host':
@@ -697,9 +703,13 @@
                         var width = image.width;
                         var height = image.height;
                         var sx = x / width;
-                        var sy = j < 2 ? 0 : 0.5;
+                        var sy = j < 2 ? 0 : 0.25;
                         var ex = (x+w) / width;
-                        var ey = j < 2 ? ((y+h) / height) : 0.75;
+                        var ey = j < 2 ? ((y+h) / height) : 0.375;
+                        if (skinVersion == 1) {
+                            sy += 0.5;
+                            ey += 0.5;
+                        }
                         textureData[i] = sx;
                         textureData[i+1] = sy;
         
@@ -1100,7 +1110,7 @@
             
                             var angle = ((1 - lerp) * ((from.a || 0) % (Math.PI/2))) + (lerp * ((to.a || 0) % (Math.PI/2)));
 
-                            t.display = { x: xy.x, y: xy.y, a: angle + lerp*Math.PI*Math.floor(t.r1*6), a2: lerp*Math.PI*Math.floor(t.r2*3), a3: lerp*Math.PI*Math.floor(t.r3*3), w: size, moving: true }
+                            t.display = { x: xy.x, y: xy.y, a: angle + lerp*Math.PI*Math.round(-3+t.r1*6), a2: lerp*Math.PI*Math.round(-3+t.r2*3), a3: lerp*Math.PI*Math.round(-3+t.r3*3), w: size, moving: true }
                         }
                     } else {
                         if (t.position) {
@@ -1123,10 +1133,6 @@
             var unit = width/10;
             top += (unit/2);
             left += (unit/2);
-
-            if (!board) {
-                console.log(boards);
-            }
 
             for (var y = 0; y < 5; y++) {
                 for (var x = 0; x < y+1; x++) {
@@ -1385,10 +1391,11 @@
         if (boards.length && playerId != '') {
             boards.forEach(b => {
                 b.pattern.forEach(pr => pr.forEach(pc => {
+                    // display may not be initialized
                     drawSprite('highlight', 0, 0, pc.display.x, pc.display.y, pc.display.w, pc.display.w, 0, 0.5, 'grey');
                 }));
                 b.grid.forEach((gr, gri) => gr.forEach((gc, gci) => {
-                    drawSprite('places', COLOURS[gri][gci], 0, gc.display.x, gc.display.y, gc.display.w, gc.display.w, 0, 0.5);
+                    drawSprite('places', COLOURS[gri][gci], skinVersion, gc.display.x, gc.display.y, gc.display.w, gc.display.w, 0, 0.5);
                 }));
                 b.floor.forEach((f, fi) => {
                     drawSprite('highlight', 0, 0, f.display.x, f.display.y, f.display.w, f.display.w, 0, 0.55, 'red');
@@ -1454,11 +1461,21 @@
             }
         }
 
+        var clickInitiates = clicks.filter(c => c.state == 'click');
+        var holds = clicks.filter(c => c.state == 'hold');
 
+        var click = null;
         // process most recent click
-        var click = clicks.pop();
+        if (clickInitiates.length) {
+            click = clickInitiates.pop();
+        } else {
+            if (holds.length) {
+                click = holds.pop();
+            }
+        }
         clicks = [];
-        if(click) {
+
+        if(click && click.state == 'click') {
             // check where click is
 
             var sentCommand = false;
@@ -1551,7 +1568,6 @@
 
         var top = canvas.height/2;
         var unit = canvas.height/20;
-        var j = 0;
         var allText = chatlog.filter((cl, i) => i >= Math.max(0, chatlog.length - 8)).reduce((a, c) => {
             return a + '\n' + c.message;
         }, '');
@@ -1608,7 +1624,7 @@
                 cb: (x, y, w, h, u) => {
                     x -= u/2;
                     y -= u/2;
-                    if (click && click.x > x && click.x < (x+w) && click.y > y && click.y < (y+h)) {
+                    if (click && click.state == 'click' && click.x > x && click.x < (x+w) && click.y > y && click.y < (y+h)) {
                         sendMessage({
                             type: 'start',
                             data: roundTimeSlider
@@ -1628,7 +1644,7 @@
                     cb: (x, y, w, h, u) => {
                         x -= u/2;
                         y -= u/2;
-                        if (click && click.x > x && click.x < (x+w) && click.y > y && click.y < (y+h)) {
+                        if (click && click.state == 'click' && click.x > x && click.x < (x+w) && click.y > y && click.y < (y+h)) {
                             sendMessage({
                                 type: 'leave'
                             });
@@ -1644,7 +1660,7 @@
                     cb: (x, y, w, h, u) => {
                         x -= u/2;
                         y -= u/2;
-                        if (click && click.x > x && click.x < (x+w) && click.y > y && click.y < (y+h)) {
+                        if (click && click.state == 'click' && click.x > x && click.x < (x+w) && click.y > y && click.y < (y+h)) {
                             soundOn = !soundOn;
                         }
                     }
@@ -1656,7 +1672,7 @@
                     cb: (x, y, w, h, u) => {
                         x -= u/2;
                         y -= u/2;
-                        if (click && click.x > x && click.x < (x+w) && click.y > y && click.y < (y+h)) {
+                        if (click && click.state == 'click' && click.x > x && click.x < (x+w) && click.y > y && click.y < (y+h)) {
                             showMenuUI = false;
                         }
                     }
@@ -1672,7 +1688,7 @@
             var x = canvas.width - playerTileSize;
             var y = canvas.height - playerTileSize;
             drawSprite('ui', 0, 6, x, y, playerTileSize, playerTileSize, 0, 0.2);
-            if(click && Math.hypot(x - click.x, y - click.y) < (playerTileSize*0.7)) {
+            if(click && click.state == 'click' && Math.hypot(x - click.x, y - click.y) < (playerTileSize*0.7)) {
                 showMenuUI = !showMenuUI;
             }
         }
@@ -1731,7 +1747,10 @@
     function updateCursorPosition(e) {
         cursorX = e.x;
         cursorY = e.y;
-        updateDisplay(1);
+        if (e.buttons == 1) {
+            clicks.push({ x: e.x, y: e.y, state: 'hold' });
+        }
+        updateDisplay(2);
     }
 
     function triggerAudio() {
@@ -1745,9 +1764,9 @@
     }
 
     function mouseDown(e) {
-        if (e.button == 0) {
+        if (e.buttons == 1) {
             //select
-            clicks.push({ x: e.x, y: e.y });
+            clicks.push({ x: e.x, y: e.y, state: 'click' });
         }
         triggerAudio();
         updateDisplay(2);
