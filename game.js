@@ -42,8 +42,6 @@ function Game(code, host) {
 			player.game = this;
 	
 			this.broadcastPlayerlist();
-			player.sendId();
-			player.sendLobbyId();
 			return true;
 		} else {
 			return false;
@@ -68,17 +66,21 @@ function Game(code, host) {
 	}
 
 	this.broadcastPlayerlist = function() {
-		this.broadcast({
-			type: 'playerlist',
-			data: {
-				players: this.players.map(p => {
-					return {
-						id: p.id,
-						name: p.name,
-						score: p.score
-					};
-				})
-			} 
+		this.broadcast((player) => {
+			return {
+				type: 'playerlist',
+				data: {
+					players: this.players.map(p => {
+						return {
+							id: p.id,
+							name: p.name,
+							score: p.score
+						};
+					}),
+					playerId: player.id,
+					gameId: player.game.id
+				} 
+			};
 		});
 	}
 
@@ -327,7 +329,11 @@ function Game(code, host) {
 
 	this.broadcast = function(message) {
 		this.players.forEach(p => {
-			p.send(message);
+			if (typeof message == 'function') {
+				p.send(message(p));
+			} else {
+				p.send(message);
+			}
 		});
 	}
 
@@ -442,9 +448,7 @@ function Game(code, host) {
 	}
 
 	this.broadcastPlayerlist();
-	host.sendId();
 	host.sendHost();
-	host.sendLobbyId();
 
 	return this;
 }
@@ -540,25 +544,9 @@ function Player(client) {
 
 	this.state = function() {
 		this.game.broadcaststate(this);
-		this.sendId();
-		this.sendLobbyId();
 		if (!this.game.started && this.isAdmin) {
 			this.sendHost();
 		}
-	}
-
-	this.sendLobbyId = function() {
-		this.send({
-			type: 'lobby',
-			data: this.game.id
-		});
-	}
-
-	this.sendId = function() {
-		this.send({
-			type: 'playerid',
-			data: this.id
-		})
 	}
 
 	this.sendHost = function() {

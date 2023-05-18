@@ -62,15 +62,6 @@
                 showJoinUI = true;
                 updateDisplay(1);
                 break;
-            case 'lobby':
-                lobbyName = message.data;
-                if (lobbyName.endsWith('2')) {
-                    skinVersion = 1;
-                } else {
-                    skinVersion = 0;
-                }
-                updateDisplay(1);
-                break;
             case 'host':
                 showHostUI = true;
                 updateDisplay(1);
@@ -166,10 +157,13 @@
                 break;
             case 'playerlist':
                 boards = message.data.players.map(p => NewBoard(p.id, p.name, p.score));
-                updateDisplay(1);
-                break;
-            case 'playerid':
-                playerId = message.data;
+                playerId = message.data.playerId;
+                lobbyName = message.data.gameId;
+                if (lobbyName.endsWith('2')) {
+                    skinVersion = 1;
+                } else {
+                    skinVersion = 0;
+                }
                 updateDisplay(1);
                 break;
         }
