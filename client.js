@@ -206,7 +206,7 @@
 
         void main() {
             vec4 color = texture2D(uTexture, vTexcoord);
-            if (color.r == 0.0 && color.g == 0.0 && color.b == 0.0) {
+            if (color.r <= 0.05 && color.g <= 0.05 && color.b <= 0.05) {
                 color.r = vRecolor.r;
                 color.g = vRecolor.g;
                 color.b = vRecolor.b;
@@ -671,7 +671,7 @@
             }
             var threed = k == 'tiles';
             drawCalls.forEach((dc, i) => {
-                calculatePosition(dc[4], dc[5], dc[6], dc[7], dc[8], dc[9], threed, dc[10], i == 0);
+                calculatePosition(dc[4], dc[5], dc[6], dc[7], dc[8], dc[9], threed, dc[11], i == 0);
             });
             gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
             gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
@@ -1546,14 +1546,18 @@
 
         tiles.forEach(t => {
             if (t.display) {
-                drawSprite('tiles', t.colour, 0, t.display.x, t.display.y, t.display.w, t.display.w, t.display.a || 0, !!t.display.moving ? 0.49 : 0.5, {
+                var color = null;
+
+                if (t.position == highlightedPosition && t.colour == highlightedColour) {
+                    color = 'green';
+                }
+
+                drawSprite('tiles', t.colour, 0, t.display.x, t.display.y, t.display.w, t.display.w, t.display.a || 0, !!t.display.moving ? 0.49 : 0.5, color, {
                     a2: t.display.a2 || 0,
                     a3: t.display.a3 || 0,
                 });
 
-                if (t.position == highlightedPosition && t.colour == highlightedColour) {
-                    drawSprite('highlight', 0, 0, t.display.x, t.display.y, t.display.w, t.display.w, t.display.a || 0, 0.45, 'green');
-                }
+                
             }
         });
 
