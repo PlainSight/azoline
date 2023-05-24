@@ -19,6 +19,7 @@
     var chatlog = [];
     var lobbyName = '';
     var skinVersion = 0;
+    var skinSymmetry = 2;
     var serverOffset = 0;
 
     function serverTime() {
@@ -159,11 +160,22 @@
                 boards = message.data.players.map(p => NewBoard(p.id, p.name, p.score));
                 playerId = message.data.playerId;
                 lobbyName = message.data.gameId;
-                if (lobbyName.endsWith('2')) {
-                    skinVersion = 1;
-                } else {
-                    skinVersion = 0;
+
+                var lastCharacter = lobbyName.charAt(lobbyName.length-1);
+
+                skinVersion = 0;
+                skinSymmetry = 2;
+
+                switch(lastCharacter) {
+                    case '2':
+                        skinVersion = 1;
+                        break;
+                    case '3':
+                        skinVersion = 2;
+                        skinSymmetry = 1;
+                        break;
                 }
+
                 updateDisplay(1);
                 break;
         }
@@ -696,14 +708,15 @@
                         var i = (index * 6 * 12) + (j * 12);
                         var width = image.width;
                         var height = image.height;
+                        var numHigh = height / h;
                         var sx = x / width;
-                        var sy = j < 2 ? 0 : 0.25;
+                        var sy = j < 2 ? 0 : 1;
                         var ex = (x+w) / width;
-                        var ey = j < 2 ? ((y+h) / height) : 0.375;
-                        if (skinVersion == 1) {
-                            sy += 0.5;
-                            ey += 0.5;
-                        }
+                        var ey = j < 2 ? 1 : 1.5;
+                        sy += 2*skinVersion;
+                        sy /= (numHigh);
+                        ey += 2*skinVersion;
+                        ey /= (numHigh);
                         textureData[i] = sx;
                         textureData[i+1] = sy;
         
@@ -1104,7 +1117,11 @@
             
                             var angle = ((1 - lerp) * ((from.a || 0) % (Math.PI/2))) + (lerp * ((to.a || 0) % (Math.PI/2)));
 
-                            t.display = { x: xy.x, y: xy.y, a: angle + lerp*Math.PI*Math.round(-3+t.r1*6), a2: lerp*Math.PI*Math.round(-3+t.r2*3), a3: lerp*Math.PI*Math.round(-3+t.r3*3), w: size, moving: true }
+                            var rr1 = Math.round((-1.5*skinSymmetry)+t.r1*(3*skinSymmetry));
+                            var rr2 = Math.round((-1.5*skinSymmetry)+t.r2*(3*skinSymmetry));
+                            var rr3 = Math.round((-1.5*skinSymmetry)+t.r3*(3*skinSymmetry));
+
+                            t.display = { x: xy.x, y: xy.y, a: angle + lerp*(2/skinSymmetry)*Math.PI*rr1, a2: lerp*(2/skinSymmetry)*Math.PI*rr2, a3: lerp*(2/skinSymmetry)*Math.PI*rr3, w: size, moving: true }
                         }
                     } else {
                         if (t.position) {
@@ -1546,18 +1563,18 @@
 
         tiles.forEach(t => {
             if (t.display) {
-                var color = null;
 
-                if (t.position == highlightedPosition && t.colour == highlightedColour) {
-                    color = 'green';
-                }
-
-                drawSprite('tiles', t.colour, 0, t.display.x, t.display.y, t.display.w, t.display.w, t.display.a || 0, !!t.display.moving ? 0.49 : 0.5, color, {
+                drawSprite('tiles', t.colour, 0, t.display.x, t.display.y, t.display.w, t.display.w, t.display.a || 0, !!t.display.moving ? 0.49 : 0.5, 'black', {
                     a2: t.display.a2 || 0,
                     a3: t.display.a3 || 0,
                 });
 
-                
+                if (t.position == highlightedPosition && t.colour == highlightedColour) {
+                    drawSprite('tiles', 6, 0, t.display.x, t.display.y, t.display.w, t.display.w, t.display.a || 0, !!t.display.moving ? 0.49 : 0.5, 'green', {
+                        a2: t.display.a2 || 0,
+                        a3: t.display.a3 || 0,
+                    });
+                }
             }
         });
 

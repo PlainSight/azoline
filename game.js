@@ -257,7 +257,12 @@ function Game(code, host) {
 
 		this.broadcastPlayerlist();
 		
-		var factoryCount = Math.max(1 + (this.players.length * 2), 5);
+		var factoryCount = 4;
+
+		if (this.players.length > 1) {
+			factoryCount = 1 + (this.players.length * 2);
+		}
+
 		for(var i = 0; i < factoryCount; i++) {
 			this.factories.push([]);
 		}
@@ -436,7 +441,7 @@ function Game(code, host) {
 					this.broadcastPlayerlist();
 					this.broadcastTiles();
 					this.chat(bestPlayer.name + ' WINS WITH ' + bestScore + ' POINTS!');
-					this.chat('The game will end in 30 seconds');
+					this.chat('The game will end in 20 seconds');
 
 					setTimeout(() => {
 						this.finished = true;
