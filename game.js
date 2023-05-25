@@ -509,7 +509,7 @@ function Player(client) {
 			tt = 0;
 		} else {
 			if (this.timedOut) {
-				tt = Math.max(self.game.turnTime / 3, 10);
+				tt = Math.max(self.game.turnTime / 3, 10000);
 			}
 		}
 		this.timerEnd = Date.now() + tt;
