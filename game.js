@@ -50,6 +50,20 @@ function Game(code, host) {
 		}
 	}
 
+	this.random = (function () {
+		var seed = Math.random() * 1000000000;
+		return function () {
+			seed = seed & 0xffffffff;
+			seed = (seed + 0x7ed55d16 + (seed << 12)) & 0xffffffff;
+			seed = (seed ^ 0xc761c23c ^ (seed >>> 19)) & 0xffffffff;
+			seed = (seed + 0x165667b1 + (seed << 5)) & 0xffffffff;
+			seed = ((seed + 0xd3a2646c) ^ (seed << 9)) & 0xffffffff;
+			seed = (seed + 0xfd7046c5 + (seed << 3)) & 0xffffffff;
+			seed = (seed ^ 0xb55a4f09 ^ (seed >>> 16)) & 0xffffffff;
+			return (seed & 0xfffffff) / 0x10000000;
+		}
+	})();
+
 	this.leave = function(player) {
 		player.client.send({ type: 'codeplease' });
 		if (this.players.filter(p => !p.disconnected).length == 1) {
@@ -202,26 +216,25 @@ function Game(code, host) {
 		this.broadcastTiles();
 	}
 
-	function shuffle(array) {
-		let currentIndex = array.length,  randomIndex;
+	this.shuffle = function(array) {
+		let currentIndex = array.length, randomIndex;
 	  
 		// While there remain elements to shuffle.
 		while (currentIndex != 0) {
-	  
-		  // Pick a remaining element.
-		  randomIndex = Math.floor(Math.random() * currentIndex);
-		  currentIndex--;
-	  
-		  // And swap it with the current element.
-		  [array[currentIndex], array[randomIndex]] = [
+			// Pick a remaining element.
+			randomIndex = Math.floor(this.random() * currentIndex);
+			currentIndex--;
+		
+			// And swap it with the current element.
+			[array[currentIndex], array[randomIndex]] = [
 			array[randomIndex], array[currentIndex]];
 		}
 	  
 		return array;
-	  }
+	}
 
 	this.populateFactories = function() {
-		this.bag = shuffle(this.bag);
+		this.bag = this.shuffle(this.bag);
 
 		var numberOne = this.lid.filter(t => t.colour == 5)[0];
 		this.lid = this.lid.filter(t => t.colour != 5);
@@ -243,7 +256,7 @@ function Game(code, host) {
 
 	this.replenishBag = function() {
 		this.bag = this.lid;
-		this.bag = this.bag.sort((a, b) => Math.random()-0.5);
+		this.bag = this.shuffle(this.bag);
 		this.lid = [];
 	}
 
@@ -255,7 +268,7 @@ function Game(code, host) {
 			data: 'The game is beginning!'
 		});
 
-		this.players = shuffle(this.players);
+		this.players = this.shuffle(this.players);
 
 		this.broadcastPlayerlist();
 		
@@ -390,7 +403,7 @@ function Game(code, host) {
 				}),
 				round: this.round
 			}
-		})
+		});
 	}
 
 	this.broadcaststate = function() {

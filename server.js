@@ -29,7 +29,6 @@ function parseMessage(m, client) {
             if (cookie == null) {
                 // generate an id
                 cookie = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0].map(() => { return ALPHANUMERIC[Math.floor(Math.random()*ALPHANUMERIC.length)] }).join('');
-                
             }
             client.cookie = cookie;
             if (clients[cookie]) {
