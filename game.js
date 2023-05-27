@@ -36,6 +36,8 @@ function Game(code, host) {
 	this.started = false;
 	this.finished = false;
 
+	gameSelf = this;
+
 	this.addPlayer = function(player) {
 		if (!this.started) {
 			this.players.push(player);
@@ -352,47 +354,46 @@ function Game(code, host) {
 	}
 
 	this.broadcastTiles = function() {
-		function serializePosition(position) {
-			var ret = {
-				type: position.type
-			}
+		function numeralizePosition(position) {
 			switch (position.type) {
+				case 'bag':
+					return 0;
+				case 'lid':
+					return 1;
+				case 'middle':
+					return 2;
 				case 'factory':
-					ret.factoryid = position.factoryid;			
-					break;
+					return position.factoryid+3;
 				case 'pattern':
-					ret.subposition = position.subposition;
-					ret.playerId = position.playerId;
-					ret.x = position.x;
-					ret.y = position.y;
-					break;
+					var offset = 100 + (100 * gameSelf.players.findIndex(p => position.playerId == p.id));
+					offset += position.x;
+					if (position.subposition == 'floor') {
+						offset += 25;
+					} else {
+						offset += 5 * position.y;
+					}
+					return offset;
 				case 'grid':
-					ret.playerId = position.playerId;
-					ret.x = position.x;
-					ret.y = position.y;
-					break;
-				default:
-					break;
+					var offset = 100 + (100 * gameSelf.players.findIndex(p => position.playerId == p.id));
+					offset += 50;
+					offset += position.x;
+					offset += 5 * position.y;
+					return offset;
 			}
-			return ret;
 		}
 
 		this.broadcast({
 			type: 'tiles',
 			data: {
-				tiles: this.tiles.map(t => { 
-					return {
-						id: t.id,
-						colour: t.colour,
-						position: serializePosition(t.position)
-					}
+				tiles: this.tiles.map(t => {
+					return numeralizePosition(t.position);
 				}),
 				round: this.round
 			}
 		})
 	}
 
-	this.broadcaststate = function(player) {
+	this.broadcaststate = function() {
 		this.broadcastPlayerlist();
 		this.broadcastFactories();
 		this.broadcastTiles();
@@ -548,7 +549,7 @@ function Player(client) {
 
 
 	this.state = function() {
-		this.game.broadcaststate(this);
+		this.game.broadcaststate();
 		if (!this.game.started && this.isAdmin) {
 			this.sendHost();
 		}

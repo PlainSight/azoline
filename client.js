@@ -85,10 +85,66 @@
                 }
                 updateDisplay(1);
                 break;
-            case 'tiles': 
+            case 'tiles':
                 var newTiles = [];
+                var totalTiles = message.data.tiles.length;
                 for (var i = 0; i < message.data.tiles.length; i++) {
-                    var tileUpdate = message.data.tiles[i];
+                    var tileId = i+100;
+                    var tilePositionNumber = message.data.tiles[i];
+                    var tileColour = i % 5;
+
+                    if (i == (totalTiles - 1)) {
+                        tileId = 99;
+                        tileColour = 5;
+                    }
+
+                    var tilePosition = {
+                        type: 'bag'
+                    }
+
+                    switch (tilePositionNumber) {
+                        case 0:
+                            tilePosition.type = 'bag';
+                            break;
+                        case 1:
+                            tilePosition.type = 'lid';
+                            break;
+                        case 2:
+                            tilePosition.type = 'middle';
+                            break;
+                        default:
+                            if (tilePositionNumber < 100) {
+                                tilePosition.type = 'factory';
+                                tilePosition.factoryid = tilePositionNumber - 3;
+                            } else {
+                                var pid = boards[Math.floor((tilePositionNumber - 100) / 100)].id;
+                                tilePosition.playerId = pid;
+                                var mod100 = tilePositionNumber % 100;
+                                if (mod100 < 50) {
+                                    tilePosition.type = 'pattern';
+                                    if (mod100 < 25) {
+                                        tilePosition.subposition = 'pattern'
+                                        tilePosition.x = mod100 % 5;
+                                        tilePosition.y = Math.floor(mod100 / 5);
+                                    } else {
+                                        tilePosition.subposition = 'floor';
+                                        tilePosition.x = mod100 - 25;
+                                    }
+                                } else {
+                                    tilePosition.type = 'grid';
+                                    tilePosition.x = mod100 % 5;
+                                    tilePosition.y = Math.floor((mod100 - 50) / 5);
+                                }
+                            }
+                        break;
+                    }
+
+                    var tileUpdate = {
+                        id: tileId,
+                        colour: tileColour,
+                        position: tilePosition
+                    };
+
                     var existingTile = tiles.filter(t => t.id == tileUpdate.id)[0];
 
                     var delay = 0;
