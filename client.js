@@ -1481,7 +1481,7 @@
                 drawText(b.display.name.x, b.display.name.y, b.display.name.w, b.display.name.w*8, b.name, 0.3, false, b.turn ? 'playerturn' : null);
                 // score
                 drawText(b.display.score.x, b.display.score.y, b.display.score.w, b.display.name.w*8, ''+b.score, 0.3, false);
-                if (b.turn && b.timerEnd > Date.now()) {
+                if (b.turn && b.timerEnd > serverTime()) {
                     // timer
                     drawText(b.display.timer.x, b.display.timer.y, b.display.timer.w, b.display.timer.w*8, ''+Math.ceil((b.timerEnd - serverTime()) / 1000), 0.3, false);
                 }
