@@ -22,6 +22,7 @@ const ALPHANUMERIC = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUV
 
 function Game(code, host) {
 	this.id = code;
+	this.gameRecordId = 0;
 	this.players = [host];
 	host.isAdmin = true;
 	host.game = this;
@@ -35,6 +36,12 @@ function Game(code, host) {
 	this.turnTime = TURNTIME;
 	this.started = false;
 	this.finished = false;
+	this.seed = Math.floor(Math.random() * 1000000000);
+	this.replayMode = false;
+
+	if (code.startsWith('replay:')) {
+		this.replayMode = true;
+	}
 
 	gameSelf = this;
 
@@ -51,7 +58,7 @@ function Game(code, host) {
 	}
 
 	this.random = (function () {
-		var seed = Math.random() * 1000000000;
+		var seed = gameSelf.seed;
 		return function () {
 			seed = seed & 0xffffffff;
 			seed = (seed + 0x7ed55d16 + (seed << 12)) & 0xffffffff;
@@ -270,6 +277,8 @@ function Game(code, host) {
 
 		this.players = this.shuffle(this.players);
 
+		database.CreateGameRecord(this.id, this.seed, this.players.map(p => { return { name: p.name, score: p.score, id: p.id };}), gameSelf);
+
 		this.broadcastPlayerlist();
 		
 		var factoryCount = 4;
@@ -449,7 +458,7 @@ function Game(code, host) {
 						var bonus = p.calculateBonuses();
 						this.chat(p.name + ' SCORES ' + bonus + ' BONUS POINTS!');
 					});
-					database.RecordGame(this.id, this.players.map(p => { return { name: p.name, score: p.score };}));
+					database.UpdateGameRecord(this.gameRecordId, this.players.map(p => { return { name: p.name, score: p.score, id: p.id };}));
 					var bestScore = Math.max(...this.players.map(p => p.score));
 					var bestPlayer = this.players.filter(p => p.score == bestScore)[0];
 					this.broadcastPlayerlist();
@@ -662,6 +671,12 @@ function Player(client) {
 				this.game.moveTile(t, 'middle')
 			});
 		}
+
+		database.InsertCommandRecord(this.game.gameRecordId, this.id, {
+			colour: colour,
+			zone: zone,
+			destination, destination
+		});
 		
 		this.placeInPattern(picked, destination);
 
