@@ -34,6 +34,7 @@ function Game(code, host) {
 	this.middle = [];
 	this.turn = 0;
 	this.turnTime = TURNTIME;
+	this.startTime = Date.now();
 	this.started = false;
 	this.finished = false;
 	this.seed = Math.floor(Math.random() * 1000000000);
@@ -423,6 +424,12 @@ function Game(code, host) {
 	}
 
 	this.next = function() {
+		if (players.every(p => !p.isConnected)) {
+			this.finished = true;
+		}
+		if (Date.now() - this.startTime > 3_600_000) {
+			this.finished = true;
+		}
 		if (this.finished) {
 			return;
 		}
@@ -488,6 +495,7 @@ function Player(client) {
 	this.isTurn = false;
 	this.startsNext = false;
 	this.disconnected = false;
+	this.isConnected = true;
 	this.name = client.name;
 	this.timedOut = false;
 	this.timer = null;

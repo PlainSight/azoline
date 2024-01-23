@@ -111,8 +111,11 @@ wss.on('connection', function connection(ws) {
         parseMessage(message, ws.client);
     });
     ws.on('close', () => {
-        if (ws.player) {
+        if (ws.client) {
             ws.client.isConnected = false;
+            if (ws.client.player) {
+                ws.client.player.isConnected = false;
+            }
         }
     });
 });
