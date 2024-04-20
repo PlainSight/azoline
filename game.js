@@ -424,7 +424,7 @@ function Game(code, host) {
 	}
 
 	this.next = function() {
-		if (players.every(p => !p.isConnected)) {
+		if (this.players.every(p => !p.isConnected)) {
 			this.finished = true;
 		}
 		if (Date.now() - this.startTime > 3_600_000) {
