@@ -3,6 +3,10 @@ var game = require('./game');
 var database = require('./database');
 var http = require('http');
 
+process.on('uncaughtException', (ex) => {
+    console.log(ex);
+});
+
 database.SetupDatabase();
 
 const server = http.createServer((req, res) => {
