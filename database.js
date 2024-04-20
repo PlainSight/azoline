@@ -31,9 +31,7 @@ var CreateGameRecord = function(code, seed, players, game) {
 		$seed: seed
 		}, function(err) {
 		var gameRecordId = this.lastID;
-		console.log(gameRecordId, game.gameRecordId);
 		game.gameRecordId = gameRecordId;
-		console.log(game.gameRecordId);
 
 		players.forEach(p => {
 			db.run(`
@@ -64,9 +62,14 @@ var UpdateGameRecord = function(gameRecordId, players) {
 
 var ReadGameHistory = function(cb) {
 	db.all(`
-		SELECT g.game_id, g.completed_date, g.code, ps.player_name, ps.player_score
+		SELECT g.game_id, g.completed_date, g.code, ps.player_name, ps.player_score, ga.game_id is not null as has_replay
 		FROM game g
 		INNER JOIN player_score ps on ps.game_id = g.game_id
+		LEFT JOIN (
+			SELECT a.game_id
+			FROM action a
+			GROUP BY a.game_id
+		) ga on ga.game_id = g.game_id
 		ORDER BY g.game_id DESC;
 	`, function(err, rows) {
 		var games = rows.reduce((a, c) => {
@@ -74,7 +77,8 @@ var ReadGameHistory = function(cb) {
 				id: c.game_id,
 				completed: c.completed_date,
 				code: c.code,
-				players: []
+				players: [],
+				hasReplay: c.has_replay > 0
 			};
 			a[c.game_id].players.push({ name: c.player_name, score: c.player_score });
 			return a;
@@ -83,10 +87,65 @@ var ReadGameHistory = function(cb) {
 	});
 }
 
+var ReadGameCommands = function(cb, gameRecordId) {
+	db.all(`
+		SELECT g.game_id, g.completed_date, g.code, ps.player_name, ps.player_score, ga.game_id is not null as has_replay
+		FROM game g
+		INNER JOIN player_score ps on ps.game_id = g.game_id
+		LEFT JOIN (
+			SELECT a.game_id
+			FROM action a
+			GROUP BY a.game_id
+		) ga on ga.game_id = g.game_id
+		WHERE g.game_id = $game
+		ORDER BY g.game_id DESC;
+	`, {
+		$game: gameRecordId
+	},
+	function(err, rows) {
+		var res = rows.reduce((a, c) => {
+			a[c.game_id] = a[c.game_id] || {
+				id: c.game_id,
+				completed: c.completed_date,
+				code: c.code,
+				players: [],
+				hasReplay: c.has_replay > 0
+			};
+			a[c.game_id].players.push({ name: c.player_name, score: c.player_score });
+			return a;
+		}, {});
+		var game = Object.values(res)[0];
+		
+		if (game.hasReplay) {
+			db.all(`
+				SELECT *
+				FROM action a
+				WHERE a.game_id = $game
+				ORDER BY a.action_id ASC
+			`, {
+				$game: gameRecordId
+			}, function (err, rows) {
+				//(action_id INTEGER PRIMARY KEY, time TEXT, game_id INTEGER, player_id TEXT, command TEXT);
+				game.actions = rows.map(r => {
+					return {
+						id: r.action_id,
+						time: r.time,
+						playerId: r.player_id,
+						command: JSON.parse(r.command)
+					};
+				});
+			});
+		}
+
+		cb(game);
+	});
+}
+
 module.exports = {
 	CreateGameRecord,
     UpdateGameRecord,
 	InsertCommandRecord,
 	ReadGameHistory,
+	ReadGameCommands,
 	SetupDatabase
 }

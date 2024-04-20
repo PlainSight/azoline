@@ -1362,7 +1362,7 @@
         // calculate display based on canvas resolution;
 
         var playerCount = boards.length;
-        var playerTileSize = canvas.width * 0.08;
+        var playerTileSize = canvas.width * 0.04;
 
         if (canvas.width < canvas.height) {
             // vert layout
@@ -1652,7 +1652,7 @@
             }
         }
 
-        if (showNamebox) {
+        if (showNamebox && !showMenuUI) {
             drawPrompt(canvas.width/4, canvas.height/3, canvas.width/2, canvas.height/3, [{
                 text: 'Please enter your name',
                 type: 'text',
@@ -1662,7 +1662,7 @@
             }]);
         }
 
-        if (showJoinUI) {
+        if (showJoinUI && !showMenuUI) {
             drawPrompt(canvas.width/4, canvas.height/3, canvas.width/2, canvas.height/3, [{
                 text: 'Please enter a game code',
                 type: 'text',
@@ -1707,23 +1707,7 @@
         }
 
         if (showMenuUI) {
-            drawPrompt(canvas.width/4, canvas.height/8, canvas.width/2, 3*canvas.height/4, [
-                {
-                    text: 'Leave the game?',
-                    type: 'button',
-                    buttonText: 'Leave',
-                    cb: (x, y, w, h, u) => {
-                        x -= u/2;
-                        y -= u/2;
-                        if (click && click.state == 'click' && click.x > x && click.x < (x+w) && click.y > y && click.y < (y+h)) {
-                            sendMessage({
-                                type: 'leave'
-                            });
-                            showMenuUI = false;
-                            showHostUI = false;
-                        }
-                    }
-                },
+            var contents = [
                 {
                     text: 'Audio         ',
                     type: 'button',
@@ -1748,20 +1732,40 @@
                         }
                     }
                 }
-            ])
+            ];
+            if (lobbyName) {
+                contents.unshift({
+                    text: 'Leave the game?',
+                    type: 'button',
+                    buttonText: 'Leave',
+                    cb: (x, y, w, h, u) => {
+                        x -= u/2;
+                        y -= u/2;
+                        if (click && click.state == 'click' && click.x > x && click.x < (x+w) && click.y > y && click.y < (y+h)) {
+                            sendMessage({
+                                type: 'leave'
+                            });
+                            showMenuUI = false;
+                            showHostUI = false;
+                        }
+                    }
+                });
+            }
+
+            drawPrompt(canvas.width/4, canvas.height/8, canvas.width/2, 3*canvas.height/4, contents)
         }
 
         if (lobbyName) {
             // put in top right
             drawText(canvas.width - (lobbyName.length * 11), 11, 11, lobbyName.length*11, lobbyName, 0.2);
+        }
 
-            // put menu somewhere
-            var x = canvas.width - playerTileSize;
-            var y = canvas.height - playerTileSize;
-            drawSprite('ui', 0, 6, x, y, playerTileSize, playerTileSize, 0, 0.2);
-            if(click && click.state == 'click' && Math.hypot(x - click.x, y - click.y) < (playerTileSize*0.7)) {
-                showMenuUI = !showMenuUI;
-            }
+        // put menu somewhere
+        var x = canvas.width - playerTileSize;
+        var y = canvas.height - playerTileSize;
+        drawSprite('ui', 0, 6, x, y, playerTileSize, playerTileSize, 0, 0.2);
+        if(click && click.state == 'click' && Math.hypot(x - click.x, y - click.y) < (playerTileSize*0.7)) {
+            showMenuUI = !showMenuUI;
         }
 
         drawScene(gl, programInfo, calls);

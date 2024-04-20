@@ -2,6 +2,7 @@ var ws = require('ws');
 var game = require('./game');
 var database = require('./database');
 var http = require('http');
+var querystring = require('node:querystring');
 
 process.on('uncaughtException', (ex) => {
     console.log(ex);
@@ -9,14 +10,27 @@ process.on('uncaughtException', (ex) => {
 
 database.SetupDatabase();
 
-const server = http.createServer((req, res) => {
+const matchHistoryServer = http.createServer((req, res) => {
+    var queryString = querystring.parse(req.url);
+    console.log(queryString);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.writeHead(200);
     database.ReadGameHistory((games) => {
         res.end(JSON.stringify(games));
     });
 });
-server.listen(7798);
+matchHistoryServer.listen(7798);
+
+const replayServer = http.createServer((req, res) => {
+    var queryString = querystring.parse(req.url);
+    console.log(queryString);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.writeHead(200);
+    database.ReadGameHistory((games) => {
+        res.end(JSON.stringify(games));
+    });
+});
+replayServer.listen(7797);
 
 const wss = new ws.Server({ port: 7799 });
 

@@ -1,4 +1,4 @@
-var endpoint = 'http://localhost:7798';
+var endpoint = 'http://localhost:7798?abc=def';
 //var endpoint = '/azulscore';
 
 fetch(endpoint).then(response => {
