@@ -13,7 +13,6 @@ var SetupDatabase = function() {
 };
 
 var InsertCommandRecord = function(gameRecordId, playerId, command) {
-	console.log(gameRecordId, command);
 	db.run(`
 		INSERT INTO action (game_id, time, player_id, command) VALUES ($game, datetime(), $playerId, $command)
 	`, {
@@ -89,7 +88,7 @@ var ReadGameHistory = function(cb) {
 
 var ReadGameCommands = function(cb, gameRecordId) {
 	db.all(`
-		SELECT g.game_id, g.completed_date, g.code, ps.player_name, ps.player_score, ga.game_id is not null as has_replay
+		SELECT g.game_id, g.completed_date, g.code, g.seed, ps.player_id, ps.player_name, ps.player_score, ga.game_id is not null as has_replay
 		FROM game g
 		INNER JOIN player_score ps on ps.game_id = g.game_id
 		LEFT JOIN (
@@ -108,13 +107,19 @@ var ReadGameCommands = function(cb, gameRecordId) {
 				id: c.game_id,
 				completed: c.completed_date,
 				code: c.code,
+				seed: c.seed,
 				players: [],
 				hasReplay: c.has_replay > 0
 			};
-			a[c.game_id].players.push({ name: c.player_name, score: c.player_score });
+			a[c.game_id].players.push({ id: c.player_id, name: c.player_name, score: c.player_score });
 			return a;
 		}, {});
 		var game = Object.values(res)[0];
+
+		if (!game) {
+			cb(null);
+			return;
+		}
 		
 		if (game.hasReplay) {
 			db.all(`
@@ -134,10 +139,10 @@ var ReadGameCommands = function(cb, gameRecordId) {
 						command: JSON.parse(r.command)
 					};
 				});
+
+				cb(game);
 			});
 		}
-
-		cb(game);
 	});
 }
 

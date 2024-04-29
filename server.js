@@ -12,7 +12,6 @@ database.SetupDatabase();
 
 const matchHistoryServer = http.createServer((req, res) => {
     var queryString = querystring.parse(req.url);
-    console.log(queryString);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.writeHead(200);
     database.ReadGameHistory((games) => {
@@ -23,12 +22,20 @@ matchHistoryServer.listen(7798);
 
 const replayServer = http.createServer((req, res) => {
     var queryString = querystring.parse(req.url);
-    console.log(queryString);
+    var gameId = Object.values(queryString)[0];
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.writeHead(200);
-    database.ReadGameHistory((games) => {
-        res.end(JSON.stringify(games));
-    });
+    database.ReadGameCommands((gameDetails) => {
+        if (gameDetails) {
+            // generate all game states
+            var g = new game.Game(gameDetails.code, {}, gameDetails);
+            var broadcasts = g.simulateGame();
+
+            res.end(JSON.stringify(broadcasts));
+        } else {
+            res.end(JSON.stringify(null));
+        }
+    }, gameId);
 });
 replayServer.listen(7797);
 

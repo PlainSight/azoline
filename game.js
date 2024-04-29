@@ -20,7 +20,7 @@ const TURNTIME = 60000;
 
 const ALPHANUMERIC = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
-function Game(code, host) {
+function Game(code, host, replayDetails) {
 	this.id = code;
 	this.gameRecordId = 0;
 	this.players = [host];
@@ -39,12 +39,24 @@ function Game(code, host) {
 	this.finished = false;
 	this.seed = Math.floor(Math.random() * 1000000000);
 	this.replayMode = false;
+	this.replayBroadcast = [];
+	this.actions = [];
 
-	if (code.startsWith('replay:')) {
+	let gameSelf = this;
+
+	if (!!replayDetails) {
+		this.players = replayDetails.players.map(p => {
+			var p = new Player(null, p);
+			p.game = gameSelf;
+			return p;
+		});
+		host = this.players[0];
+		host.isAdmin = true;
+		this.seed = replayDetails.seed;
 		this.replayMode = true;
+		this.actions = replayDetails.actions;
+		this.id = replayDetails.code;
 	}
-
-	gameSelf = this;
 
 	this.addPlayer = function(player) {
 		if (!this.started) {
@@ -56,6 +68,19 @@ function Game(code, host) {
 		} else {
 			return false;
 		}
+	}
+
+	// replay only
+	this.simulateGame = function() {
+		this.start(10, false);
+
+		this.actions.forEach(a => {
+			var playerForAction = this.players.find(p => p.id == a.playerId);
+			playerForAction.pick(a.command.colour, a.command.zone, a.command.destination);
+			this.next();
+		});
+
+		return this.replayBroadcast;
 	}
 
 	this.random = (function () {
@@ -219,11 +244,6 @@ function Game(code, host) {
 		}
 	}
 
-	this.gameStart = function() {
-		this.populateFactories();
-		this.broadcastTiles();
-	}
-
 	this.shuffle = function(array) {
 		let currentIndex = array.length, randomIndex;
 	  
@@ -268,7 +288,7 @@ function Game(code, host) {
 		this.lid = [];
 	}
 
-	this.start = function(roundTime) {
+	this.start = function(roundTime, sufflePlayers) {
 		this.turnTime = roundTime;
 		this.started = true;
 		this.broadcast({
@@ -276,9 +296,13 @@ function Game(code, host) {
 			data: 'The game is beginning!'
 		});
 
-		this.players = this.shuffle(this.players);
+		if (sufflePlayers) {
+			this.players = this.shuffle(this.players);
+		}
 
-		database.CreateGameRecord(this.id, this.seed, this.players.map(p => { return { name: p.name, score: p.score, id: p.id };}), gameSelf);
+		if (!this.replayMode) {
+			database.CreateGameRecord(this.id, this.seed, this.players.map(p => { return { name: p.name, score: p.score, id: p.id };}), gameSelf);
+		}
 
 		this.broadcastPlayerlist();
 		
@@ -323,7 +347,8 @@ function Game(code, host) {
 			}
 		}
 
-		this.gameStart();
+		this.populateFactories();
+		this.broadcastTiles();
 		this.startTurn(0);
 	}
 
@@ -336,7 +361,9 @@ function Game(code, host) {
 			this.turn = this.turn % this.players.length;
 		}
 		this.players[this.turn].isTurn = true;
-		this.players[this.turn].startTimer();
+		if (!this.replayMode) {
+			this.players[this.turn].startTimer();
+		}
 		this.broadcastTurn();
 	}
 
@@ -358,13 +385,23 @@ function Game(code, host) {
 	}
 
 	this.broadcast = function(message) {
-		this.players.forEach(p => {
-			if (typeof message == 'function') {
-				p.send(message(p));
-			} else {
-				p.send(message);
+		if (this.replayMode) {
+			if (message.type !== 'text') {
+				if (typeof message == 'function') {
+					this.replayBroadcast.push(message(this.players[0]));
+				} else {
+					this.replayBroadcast.push(message);
+				}
 			}
-		});
+		} else {
+			this.players.forEach(p => {
+				if (typeof message == 'function') {
+					p.send(message(p));
+				} else {
+					p.send(message);
+				}
+			});
+		}
 	}
 
 	this.broadcastFactories = function() {
@@ -427,7 +464,7 @@ function Game(code, host) {
 		if (this.players.every(p => !p.isConnected)) {
 			this.finished = true;
 		}
-		if (Date.now() - this.startTime > 3_600_000) {
+		if (!this.replayMode && Date.now() - this.startTime > 3_600_000) {
 			this.finished = true;
 		}
 		if (this.finished) {
@@ -442,7 +479,7 @@ function Game(code, host) {
 			this.broadcastTiles();
 			this.round++;
 
-			setTimeout(() => {
+			if (this.replayMode) {
 				// new round
 				var roundResults = this.players.map(p => {
 					return {
@@ -465,20 +502,57 @@ function Game(code, host) {
 						var bonus = p.calculateBonuses();
 						this.chat(p.name + ' SCORES ' + bonus + ' BONUS POINTS!');
 					});
-					database.UpdateGameRecord(this.gameRecordId, this.players.map(p => { return { name: p.name, score: p.score, id: p.id };}));
+					if (!this.replayMode) {
+						database.UpdateGameRecord(this.gameRecordId, this.players.map(p => { 
+							return { name: p.name, score: p.score, id: p.id };
+						}));
+					}
 					var bestScore = Math.max(...this.players.map(p => p.score));
-					var bestPlayer = this.players.filter(p => p.score == bestScore)[0];
 					this.broadcastPlayerlist();
 					this.broadcastTiles();
-					this.chat(bestPlayer.name + ' WINS WITH ' + bestScore + ' POINTS!');
-					this.chat('The game will end in 20 seconds');
-
-					setTimeout(() => {
-						this.finished = true;
-					}, 18000);
 				}
-			}, 2000);
-			
+			} else {
+				setTimeout(() => {
+					// new round
+					var roundResults = this.players.map(p => {
+						return {
+							res: p.build(),
+							player: p
+						};
+					});
+	
+					var gameEnding = roundResults.filter(rr => rr.res.endingGame).length > 0;
+	
+					var nextPlayer = roundResults.filter(rr => rr.res.startsNext == true)[0].player;
+	
+					if (!gameEnding) {
+						this.populateFactories();
+						this.broadcastPlayerlist();
+						this.startTurn(this.players.indexOf(nextPlayer));
+						this.broadcastTiles();
+					} else {
+						this.players.forEach(p => {
+							var bonus = p.calculateBonuses();
+							this.chat(p.name + ' SCORES ' + bonus + ' BONUS POINTS!');
+						});
+						if (!this.replayMode) {
+							database.UpdateGameRecord(this.gameRecordId, this.players.map(p => { 
+								return { name: p.name, score: p.score, id: p.id };
+							}));
+						}
+						var bestScore = Math.max(...this.players.map(p => p.score));
+						var bestPlayer = this.players.filter(p => p.score == bestScore)[0];
+						this.broadcastPlayerlist();
+						this.broadcastTiles();
+						this.chat(bestPlayer.name + ' WINS WITH ' + bestScore + ' POINTS!');
+						this.chat('The game will end in 20 seconds');
+	
+						setTimeout(() => {
+							this.finished = true;
+						}, 18000);
+					}
+				}, 2000);
+			}
 		}
 	}
 
@@ -488,19 +562,33 @@ function Game(code, host) {
 	return this;
 }
 
-function Player(client) {
-	this.id = [0, 0, 0, 0, 0, 0, 0, 0].map(() => { return ALPHANUMERIC[Math.floor(Math.random()*ALPHANUMERIC.length)] }).join('');
-	this.game = null;
-	this.client = client;
-	this.isTurn = false;
-	this.startsNext = false;
-	this.disconnected = false;
-	this.isConnected = true;
-	this.name = client.name;
-	this.timedOut = false;
-	this.timer = null;
-	this.timerEnd = 0;
-	client.player = this;
+function Player(client, replayPlayerDetails) {
+	if (replayPlayerDetails) {
+		this.id = replayPlayerDetails.id;
+		this.game = null;
+		this.client = null;
+		this.isTurn = false;
+		this.startsNext = false;
+		this.disconnected = false;
+		this.isConnected = true;
+		this.name = replayPlayerDetails.name;
+		this.timedOut = false;
+		this.timer = null;
+		this.timerEnd = 0;
+	} else {
+		this.id = [0, 0, 0, 0, 0, 0, 0, 0].map(() => { return ALPHANUMERIC[Math.floor(Math.random()*ALPHANUMERIC.length)] }).join('');
+		this.game = null;
+		this.client = client;
+		this.isTurn = false;
+		this.startsNext = false;
+		this.disconnected = false;
+		this.isConnected = true;
+		this.name = client.name;
+		this.timedOut = false;
+		this.timer = null;
+		this.timerEnd = 0;
+		client.player = this;
+	}
 
 	this.pattern = [
 		[null],
@@ -518,16 +606,6 @@ function Player(client) {
 	];
 	this.floor = [null, null, null, null, null, null, null];
 	this.score = 0;
-
-	this.setClient = function (client) {
-		this.client = client;
-		this.client.player = this;
-		this.name = client.name;
-	};
-
-	this.setGame = function (game) {
-		this.game = game;
-	}
 
 	this.chat = function(message) {
 		this.game.chat(this.name + ': ' + message);
@@ -567,7 +645,7 @@ function Player(client) {
 
 	this.startGame = function(roundTime) {
 		if (this.isAdmin) {
-			this.game.start(roundTime);
+			this.game.start(roundTime, true);
 		}
 	}
 
@@ -680,11 +758,13 @@ function Player(client) {
 			});
 		}
 
-		database.InsertCommandRecord(this.game.gameRecordId, this.id, {
-			colour: colour,
-			zone: zone,
-			destination, destination
-		});
+		if (!this.replayMode) {
+			database.InsertCommandRecord(this.game.gameRecordId, this.id, {
+				colour: colour,
+				zone: zone,
+				destination, destination
+			});
+		}
 		
 		this.placeInPattern(picked, destination);
 

@@ -1,9 +1,26 @@
 (function() {
-    var webaddress = 'ws://localhost:7799';
-    //var webaddress = 'wss://plainsightindustries.com/azolinesocket';
-    var resourceaddress = 'http://localhost:8080/';
-    //var resourceaddress = 'https://plainsightindustries.com/azul/';
-    let socket = new WebSocket(webaddress);
+    var replayId = 0;
+
+    let socket = {
+        onopen: () => {},
+        onmessage: () => {},
+        onclose: () => {},
+        onerror: () => {},
+        send: () => {}
+    }
+
+    if (window.location.search) {
+        replayId = window.location.search.substring(1);
+
+        fetch()
+
+    } else {
+        var webaddress = 'ws://localhost:7799';
+        //var webaddress = 'wss://plainsightindustries.com/azolinesocket';
+        var resourceaddress = 'http://localhost:8080/';
+        //var resourceaddress = 'https://plainsightindustries.com/azul/';
+        socket = new WebSocket(webaddress);
+    }
 
     socket.onopen = function() {
         sendMessage({
@@ -41,6 +58,134 @@
 
     function sendMessage(message) {
         socket.send(JSON.stringify(message));
+    }
+
+    function updateTilePositions(data) {
+        var newTiles = [];
+        var totalTiles = data.tiles.length;
+        for (var i = 0; i < data.tiles.length; i++) {
+            var tileId = i+100;
+            var tilePositionNumber = data.tiles[i];
+            var tileColour = i % 5;
+
+            if (i == (totalTiles - 1)) {
+                tileId = 99;
+                tileColour = 5;
+            }
+
+            var tilePosition = {
+                type: 'bag'
+            }
+
+            switch (tilePositionNumber) {
+                case 0:
+                    tilePosition.type = 'bag';
+                    break;
+                case 1:
+                    tilePosition.type = 'lid';
+                    break;
+                case 2:
+                    tilePosition.type = 'middle';
+                    break;
+                default:
+                    if (tilePositionNumber < 100) {
+                        tilePosition.type = 'factory';
+                        tilePosition.factoryid = tilePositionNumber - 3;
+                    } else {
+                        var pid = boards[Math.floor((tilePositionNumber - 100) / 100)].id;
+                        tilePosition.playerId = pid;
+                        var mod100 = tilePositionNumber % 100;
+                        if (mod100 < 50) {
+                            tilePosition.type = 'pattern';
+                            if (mod100 < 25) {
+                                tilePosition.subposition = 'pattern'
+                                tilePosition.x = mod100 % 5;
+                                tilePosition.y = Math.floor(mod100 / 5);
+                            } else {
+                                tilePosition.subposition = 'floor';
+                                tilePosition.x = mod100 - 25;
+                            }
+                        } else {
+                            tilePosition.type = 'grid';
+                            tilePosition.x = mod100 % 5;
+                            tilePosition.y = Math.floor((mod100 - 50) / 5);
+                        }
+                    }
+                break;
+            }
+
+            var tileUpdate = {
+                id: tileId,
+                colour: tileColour,
+                position: tilePosition
+            };
+
+            var existingTile = tiles.filter(t => t.id == tileUpdate.id)[0];
+
+            var delay = 0;
+            var transitionTime = 750 + (Math.random() * 750);
+            var newPosition = null;
+            // calculate position
+            switch (tileUpdate.position.type) {
+                case 'factory':
+                    newPosition = factories[tileUpdate.position.factoryid];
+                    break;
+                case 'middle':
+                    newPosition = middle;
+                    break;
+                case 'lid':
+                    newPosition = lid;
+                    break;
+                case 'bag':
+                    newPosition = bag;
+                    break;
+                case 'pattern':
+                    var board = boards.filter(b => b.id == tileUpdate.position.playerId)[0];
+                    if (tileUpdate.position.subposition == 'pattern') {
+                        newPosition = board.pattern[tileUpdate.position.y][tileUpdate.position.x];
+                    } else {
+                        newPosition = board.floor[tileUpdate.position.x];
+                    }
+                    break;
+                case 'grid':
+                    var board = boards.filter(b => b.id == tileUpdate.position.playerId)[0];
+                    newPosition = board.grid[tileUpdate.position.y][tileUpdate.position.x];
+                    delay = tileUpdate.position.y * 500;
+                    transitionTime = 750;
+                    break;
+            }
+
+            var newTile = {
+                id: tileUpdate.id,
+                colour: tileUpdate.colour,
+                position: newPosition
+            }
+            if (!existingTile) {
+                newTiles.push(newTile);
+            } else {
+                if (newTile.position != existingTile.position || existingTile.position == middle) {
+                    if (existingTile.position == middle) {
+                        if (newTile.position != middle) {
+                            delete middleClaims[existingTile.id];
+                        }
+                        newTile.oldposition = { display: existingTile.display };
+                    } else {
+                        newTile.oldposition = existingTile.position;
+                    }
+                    newTile.startTime = (Date.now() + delay);
+                    newTile.transitionTime = transitionTime;
+                    newTile.r1 = Math.random();
+                    newTile.r2 = Math.random();
+                    newTile.r3 = Math.random();
+                    newTiles.push(newTile);
+                } else {
+                    newTiles.push(existingTile);
+                }
+            }
+        }
+        tiles = newTiles;
+        round = data.round;
+        updateDisplay(1, Date.now() + 2800);
     }
 
     function processMessage(m) {
@@ -86,131 +231,7 @@
                 updateDisplay(1);
                 break;
             case 'tiles':
-                var newTiles = [];
-                var totalTiles = message.data.tiles.length;
-                for (var i = 0; i < message.data.tiles.length; i++) {
-                    var tileId = i+100;
-                    var tilePositionNumber = message.data.tiles[i];
-                    var tileColour = i % 5;
-
-                    if (i == (totalTiles - 1)) {
-                        tileId = 99;
-                        tileColour = 5;
-                    }
-
-                    var tilePosition = {
-                        type: 'bag'
-                    }
-
-                    switch (tilePositionNumber) {
-                        case 0:
-                            tilePosition.type = 'bag';
-                            break;
-                        case 1:
-                            tilePosition.type = 'lid';
-                            break;
-                        case 2:
-                            tilePosition.type = 'middle';
-                            break;
-                        default:
-                            if (tilePositionNumber < 100) {
-                                tilePosition.type = 'factory';
-                                tilePosition.factoryid = tilePositionNumber - 3;
-                            } else {
-                                var pid = boards[Math.floor((tilePositionNumber - 100) / 100)].id;
-                                tilePosition.playerId = pid;
-                                var mod100 = tilePositionNumber % 100;
-                                if (mod100 < 50) {
-                                    tilePosition.type = 'pattern';
-                                    if (mod100 < 25) {
-                                        tilePosition.subposition = 'pattern'
-                                        tilePosition.x = mod100 % 5;
-                                        tilePosition.y = Math.floor(mod100 / 5);
-                                    } else {
-                                        tilePosition.subposition = 'floor';
-                                        tilePosition.x = mod100 - 25;
-                                    }
-                                } else {
-                                    tilePosition.type = 'grid';
-                                    tilePosition.x = mod100 % 5;
-                                    tilePosition.y = Math.floor((mod100 - 50) / 5);
-                                }
-                            }
-                        break;
-                    }
-
-                    var tileUpdate = {
-                        id: tileId,
-                        colour: tileColour,
-                        position: tilePosition
-                    };
-
-                    var existingTile = tiles.filter(t => t.id == tileUpdate.id)[0];
-
-                    var delay = 0;
-                    var transitionTime = 750 + (Math.random() * 750);
-                    var newPosition = null;
-                    // calculate position
-                    switch (tileUpdate.position.type) {
-                        case 'factory':
-                            newPosition = factories[tileUpdate.position.factoryid];
-                            break;
-                        case 'middle':
-                            newPosition = middle;
-                            break;
-                        case 'lid':
-                            newPosition = lid;
-                            break;
-                        case 'bag':
-                            newPosition = bag;
-                            break;
-                        case 'pattern':
-                            var board = boards.filter(b => b.id == tileUpdate.position.playerId)[0];
-                            if (tileUpdate.position.subposition == 'pattern') {
-                                newPosition = board.pattern[tileUpdate.position.y][tileUpdate.position.x];
-                            } else {
-                                newPosition = board.floor[tileUpdate.position.x];
-                            }
-                            break;
-                        case 'grid':
-                            var board = boards.filter(b => b.id == tileUpdate.position.playerId)[0];
-                            newPosition = board.grid[tileUpdate.position.y][tileUpdate.position.x];
-                            delay = tileUpdate.position.y * 500;
-                            transitionTime = 750;
-                            break;
-                    }
-
-                    var newTile = {
-                        id: tileUpdate.id,
-                        colour: tileUpdate.colour,
-                        position: newPosition
-                    }
-                    if (!existingTile) {
-                        newTiles.push(newTile);
-                    } else {
-                        if (newTile.position != existingTile.position || existingTile.position == middle) {
-                            if (existingTile.position == middle) {
-                                if (newTile.position != middle) {
-                                    delete middleClaims[existingTile.id];
-                                }
-                                newTile.oldposition = { display: existingTile.display };
-                            } else {
-                                newTile.oldposition = existingTile.position;
-                            }
-                            newTile.startTime = (Date.now() + delay);
-                            newTile.transitionTime = transitionTime;
-                            newTile.r1 = Math.random();
-                            newTile.r2 = Math.random();
-                            newTile.r3 = Math.random();
-                            newTiles.push(newTile);
-                        } else {
-                            newTiles.push(existingTile);
-                        }
-                    }
-                }
-                tiles = newTiles;
-                round = message.data.round;
-                updateDisplay(1, Date.now() + 2800);
+                updateTilePositions(message.data);
                 break;
             case 'playerlist':
                 boards = message.data.players.map(p => NewBoard(p.id, p.name, p.score));
@@ -909,7 +930,6 @@
 
     var lastTimestamp = 0;
     var playerId = '';
-    var turn = false;
 
     var COLOURS = [
         [2, 3, 4, 0, 1],
