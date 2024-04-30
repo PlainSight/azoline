@@ -261,7 +261,9 @@ var webaddress = 'ws://localhost:7799/';
 
     function setPlayers(data) {
         boards = data.players.map(p => NewBoard(p.id, p.name, p.score));
-        playerId = data.playerId;
+        if (!replayMode || !playerId) {
+            playerId = data.playerId;
+        }
         lobbyName = data.gameId;
 
         var lastCharacter = lobbyName.charAt(lobbyName.length-1);
