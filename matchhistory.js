@@ -1,4 +1,4 @@
-var endpoint = 'http://localhost:7797';
+var endpoint = 'http://localhost:7798';
 //var endpoint = '/azulscore';
 
 fetch(endpoint).then(response => {
@@ -16,10 +16,18 @@ fetch(endpoint).then(response => {
         code.innerHTML = s.code;
         code.classList.add('code');
 
+        var replayLink = document.createElement('a');
+        replayLink.innerHTML = 'Replay';
+        replayLink.href = 'client.html?gameId=' + s.id;
+        replayLink.classList.add('replayLink');
+
         var dateCode = document.createElement('div');
         dateCode.classList.add('datecode');
         dateCode.appendChild(date);
         dateCode.appendChild(code);
+        if (s.hasReplay) {
+            dateCode.appendChild(replayLink);
+        }
 
         var game = document.createElement('div');
         game.classList.add('game');

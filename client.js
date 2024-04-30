@@ -1,5 +1,35 @@
+var resourceaddress = 'http://localhost:8080/';
+//var resourceaddress = 'https://plainsightindustries.com/azul/';
+
+var replayaddress = 'http://localhost:7797/';
+//var replayaddress = 'https://plainsightindustries.com/azulreplay'
+
+var webaddress = 'ws://localhost:7799/';
+//var webaddress = 'wss://plainsightindustries.com/azolinesocket';
+
 (function() {
     var replayId = 0;
+    var replayAutoplay = true;
+    var replayMode = false;
+    var replayPosition = 0;
+    var replayStarted = false;
+    var commandBundles = [];
+
+    function processReplayCommand(commandBundle) {
+        commandBundle.forEach(c => {
+            switch (c.type) {
+                case 'playerlist':
+                    setPlayers(c.data);
+                break;
+                case 'factories':
+                    setFactories(c.data);
+                break;
+                case 'tiles':
+                    updateTilePositions(c.data);
+                break;
+            }
+        });
+    }
 
     let socket = {
         onopen: () => {},
@@ -10,15 +40,46 @@
     }
 
     if (window.location.search) {
-        replayId = window.location.search.substring(1);
+        replayId = window.location.search;
+        replayMode = true;
 
-        fetch()
+        var replayUrl = replayaddress + replayId;
 
-    } else {
-        var webaddress = 'ws://localhost:7799';
-        //var webaddress = 'wss://plainsightindustries.com/azolinesocket';
-        var resourceaddress = 'http://localhost:8080/';
-        //var resourceaddress = 'https://plainsightindustries.com/azul/';
+        fetch(replayUrl).then((response) => {
+            response.json().then((replayCommands) => {
+                var currentBundle = [];
+                replayCommands.forEach(rc => {
+                    if (rc.type == 'tiles') {
+                        commandBundles.push(currentBundle);
+                        currentBundle.push(rc);
+                        currentBundle = [];
+                    } else {
+                        currentBundle.push(rc);
+                    }
+                });
+
+                if (currentBundle.length) {
+                    commandBundles.push(currentBundle);
+                }
+
+                processReplayCommand(commandBundles[replayPosition]);
+                replayStarted = true;
+                replayPosition = 1;
+
+                var interval = setInterval(() => {
+                    if (replayAutoplay) {
+                        if (replayPosition >= commandBundles.length) {
+                            clearInterval(interval);
+                        } else {
+                            processReplayCommand(commandBundles[replayPosition]);
+                            replayPosition++;
+                        }
+                    }
+                }, 2000);
+            });
+        })
+
+    } else {        
         socket = new WebSocket(webaddress);
     }
 
@@ -188,6 +249,39 @@
         updateDisplay(1, Date.now() + 2800);
     }
 
+    function setFactories(data) {
+        if (data.count != factories.length) {
+            factories = [];
+            for(var i = 0; i < data.count; i++) {
+                factories.push({});
+            };
+        }
+        updateDisplay(1);
+    }
+
+    function setPlayers(data) {
+        boards = data.players.map(p => NewBoard(p.id, p.name, p.score));
+        playerId = data.playerId;
+        lobbyName = data.gameId;
+
+        var lastCharacter = lobbyName.charAt(lobbyName.length-1);
+
+        skinVersion = 0;
+        skinSymmetry = 2;
+
+        switch(lastCharacter) {
+            case '2':
+                skinVersion = 1;
+                break;
+            case '3':
+                skinVersion = 2;
+                skinSymmetry = 1;
+                break;
+        }
+
+        updateDisplay(1);
+    }
+
     function processMessage(m) {
         var message = JSON.parse(m);
         switch (message.type) {
@@ -222,38 +316,13 @@
                 updateDisplay(1);
                 break;
             case 'factories':
-                if (message.data.count != factories.length) {
-                    factories = [];
-                    for(var i = 0; i < message.data.count; i++) {
-                        factories.push({});
-                    };
-                }
-                updateDisplay(1);
+                setFactories(message.data);
                 break;
             case 'tiles':
                 updateTilePositions(message.data);
                 break;
             case 'playerlist':
-                boards = message.data.players.map(p => NewBoard(p.id, p.name, p.score));
-                playerId = message.data.playerId;
-                lobbyName = message.data.gameId;
-
-                var lastCharacter = lobbyName.charAt(lobbyName.length-1);
-
-                skinVersion = 0;
-                skinSymmetry = 2;
-
-                switch(lastCharacter) {
-                    case '2':
-                        skinVersion = 1;
-                        break;
-                    case '3':
-                        skinVersion = 2;
-                        skinSymmetry = 1;
-                        break;
-                }
-
-                updateDisplay(1);
+                setPlayers(message.data);
                 break;
         }
     }
@@ -930,6 +999,7 @@
 
     var lastTimestamp = 0;
     var playerId = '';
+    var nextPlayerId = null;
 
     var COLOURS = [
         [2, 3, 4, 0, 1],
@@ -994,6 +1064,10 @@
         var delta = timestamp - lastTimestamp;
         lastTimestamp = timestamp;
         var fractionOfSecond = (timestamp % 1000) / 1000;
+        if (nextPlayerId) {
+            playerId = nextPlayerId;
+            nextPlayerId = null;
+        }
 
         var calls = {};
 
@@ -1371,7 +1445,17 @@
                 }
 
                 factories[f].display.claim = function() {
-                    return this.claimable.shift();
+                    var ret = this.claimable.shift();
+                    if (!ret) {
+                        // in case of replay reversal
+                        return {
+                            x: fx,
+                            y: fy,
+                            w: sizeOfTile,
+                            a: 1+round+f
+                        };
+                    }
+                    return ret;
                 }
 
                 factoryAngle += angleBetween;
@@ -1566,6 +1650,16 @@
             // check where click is
 
             var sentCommand = false;
+
+            if (replayMode && replayStarted) {
+                boards.forEach(b => {
+                    var pbn = b.display.name;
+                    if (Math.hypot(pbn.x - click.x, pbn.y - click.y) < (pbn.w*8)) {
+                        nextPlayerId = b.id;
+                    }
+                });
+            }
+
             if (tileClicked) {
                 // check for destination click, if so then send command otherwise
                 var playerBoard = boards.filter(b => b.id == playerId)[0];
@@ -1923,6 +2017,22 @@
             factories = [];
             joinCode = '';
             showJoinUI = false;
+        }
+        if (replayMode && replayStarted) {
+            if (e.key == 'ArrowRight') {
+                if (replayPosition < commandBundles.length - 1) {
+                    replayPosition++;
+                    processReplayCommand(commandBundles[replayPosition]);
+                    replayAutoplay = false;
+                }
+            }
+            if (e.key == 'ArrowLeft') {
+                if (replayPosition > 0) {
+                    replayPosition--;
+                    processReplayCommand(commandBundles[replayPosition]);
+                    replayAutoplay = false;
+                }
+            }
         }
         if (showChatbox) {
             if (e.key == 'Backspace') {

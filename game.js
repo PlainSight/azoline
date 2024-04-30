@@ -298,6 +298,8 @@ function Game(code, host, replayDetails) {
 
 		if (sufflePlayers) {
 			this.players = this.shuffle(this.players);
+		} else {
+			this.shuffle(this.players.map(x => {}));
 		}
 
 		if (!this.replayMode) {
@@ -386,7 +388,7 @@ function Game(code, host, replayDetails) {
 
 	this.broadcast = function(message) {
 		if (this.replayMode) {
-			if (message.type !== 'text') {
+			if (message.type !== 'text' && message.type !== 'turn') {
 				if (typeof message == 'function') {
 					this.replayBroadcast.push(message(this.players[0]));
 				} else {
