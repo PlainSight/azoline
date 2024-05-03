@@ -69,7 +69,7 @@ var ReadGameHistory = function(cb) {
 			FROM action a
 			GROUP BY a.game_id
 		) ga on ga.game_id = g.game_id
-		ORDER BY g.game_id DESC;
+		ORDER BY g.game_id DESC, ps.player_score_id ASC;
 	`, function(err, rows) {
 		var games = rows.reduce((a, c) => {
 			a[c.game_id] = a[c.game_id] || {
