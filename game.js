@@ -288,7 +288,7 @@ function Game(code, host, replayDetails) {
 		this.lid = [];
 	}
 
-	this.start = function(roundTime, sufflePlayers) {
+	this.start = function(roundTime, shufflePlayers) {
 		this.turnTime = roundTime;
 		this.started = true;
 		this.broadcast({
@@ -296,7 +296,7 @@ function Game(code, host, replayDetails) {
 			data: 'The game is beginning!'
 		});
 
-		if (sufflePlayers) {
+		if (shufflePlayers) {
 			this.players = this.shuffle(this.players);
 		} else {
 			this.shuffle(this.players.map(x => {}));
@@ -760,7 +760,7 @@ function Player(client, replayPlayerDetails) {
 			});
 		}
 
-		if (!this.replayMode) {
+		if (!this.game.replayMode) {
 			database.InsertCommandRecord(this.game.gameRecordId, this.id, {
 				colour: colour,
 				zone: zone,
