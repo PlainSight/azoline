@@ -816,6 +816,9 @@ function Player(client, replayPlayerDetails) {
 			 	this.game.moveTile(tile, 'middle');
 			}
 		}
+		if (this.score < 0) {
+			this.score = 0;
+		}
 		ret.startsNext = this.startsNext;
 		this.startsNext = false;
 		return ret;
