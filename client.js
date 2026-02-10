@@ -380,129 +380,90 @@ var webaddress = 'ws://localhost:7799/';
         }
     `;
 
-    // var vsFontSource = `
-    //     attribute vec2  pos;        // Vertex position
-    //     attribute vec2  tex0;       // Tex coord
-    //     attribute float scale;
+    var sdfvsSource = `
+        attribute vec3 aVertexPosition;
+        attribute vec2 aTexcoord;
 
-    //     uniform vec3 uResolution;
-    //     uniform vec2  sdf_tex_size; // Size of font texture in pixels
-    //     uniform float sdf_border_size;
+        attribute vec3 bgColor;
+        attribute vec3 fgColor;
 
-    //     varying vec2  tc0;
-    //     varying float doffset;
-    //     varying vec2  sdf_texel;
-    //     varying float subpixel_offset;
-    //     void main(void) {
-    //         float sdf_size = 2.0 * scale * sdf_border_size;
-    //         tc0 = tex0;
-    //         doffset = 1.0 / sdf_size;         // Distance field delta in screen pixels
-    //         sdf_texel = 1.0 / sdf_tex_size;
-    //         subpixel_offset = 0.3333 / scale; // 1/3 of screen pixel to texels
+        uniform vec3 uResolution;
 
-    //         vec3 zeroToOne = pos / uResolution;
-    //         vec3 zeroToTwo = zeroToOne * 2.0;
-    //         vec3 clipSpace = zeroToTwo - 1.0;
+        varying vec2 vTexcoord;
+
+        varying vec3 vbgColor;
+        varying vec3 vfgColor;
+        
+        void main() {
+            vec3 zeroToOne = aVertexPosition / uResolution;
+            vec3 zeroToTwo = zeroToOne * 2.0;
+            vec3 clipSpace = zeroToTwo - 1.0;
+
+            gl_Position = vec4(clipSpace, 1);
+
+            vTexcoord = aTexcoord;
+            vbgColor = bgColor;
+            vfgColor = fgColor;
+        }`;
     
-    //         gl_Position = vec4(clipSpace, 1);
-    //     }
-    // `;
+    var sdffsSource = `
+        precision mediump float;
 
-    // var fsFontSource = `
-    //     precision mediump float;
+        varying vec2 vTexcoord;
 
-    //     uniform sampler2D font_tex;
-    //     uniform float hint_amount;
-    //     uniform float subpixel_amount;
-    //     uniform vec4  font_color;
+        varying vec3 vbgColor;
+        varying vec3 vfgColor;
 
-    //     varying vec2  tc0;
-    //     varying float doffset;
-    //     varying vec2  sdf_texel;
-    //     varying float subpixel_offset;
+        uniform sampler2D uTexture;
+        uniform float uScreenPxRange;
 
-    //     vec3 sdf_triplet_alpha( vec3 sdf, float horz_scale, float vert_scale, float vgrad ) {
-    //         float hdoffset = mix( doffset * horz_scale, doffset * vert_scale, vgrad );
-    //         float rdoffset = mix( doffset, hdoffset, hint_amount );
-    //         vec3 alpha = smoothstep( vec3( 0.5 - rdoffset ), vec3( 0.5 + rdoffset ), sdf );
-    //         alpha = pow( alpha, vec3( 1.0 + 0.2 * vgrad * hint_amount ) );
-    //         return alpha;
-    //     }
+        float median(float r, float g, float b) {
+            return max(min(r, g), min(max(r, g), b));
+        }
 
-    //     float sdf_alpha( float sdf, float horz_scale, float vert_scale, float vgrad ) {
-    //         float hdoffset = mix( doffset * horz_scale, doffset * vert_scale, vgrad );
-    //         float rdoffset = mix( doffset, hdoffset, hint_amount );
-    //         float alpha = smoothstep( 0.5 - rdoffset, 0.5 + rdoffset, sdf );
-    //         alpha = pow( alpha, 1.0 + 0.2 * vgrad * hint_amount );
-    //         return alpha;
-    //     }
+        void main() {
+            vec3 msd = texture2D(uTexture, vTexcoord).rgb;
+            float sd = median(msd.r, msd.g, msd.b);
+            float screenPxDistance = 4.5*(sd - 0.5);
 
-    //     void main() {
-    //         // Sampling the texture, L pattern
-    //         float sdf       = texture2D( font_tex, tc0 ).r;
-    //         float sdf_north = texture2D( font_tex, tc0 + vec2( 0.0, sdf_texel.y ) ).r;
-    //         float sdf_east  = texture2D( font_tex, tc0 + vec2( sdf_texel.x, 0.0 ) ).r;
+            float opacityInner = clamp(screenPxDistance + 0.5, 0.0, 1.0);
 
-    //         // Estimating stroke direction by the distance field gradient vector
-    //         vec2  sgrad     = vec2( sdf_east - sdf, sdf_north - sdf );
-    //         float sgrad_len = max( length( sgrad ), 1.0 / 128.0 );
-    //         vec2  grad      = sgrad / vec2( sgrad_len );
-    //         float vgrad = abs( grad.y ); // 0.0 - vertical stroke, 1.0 - horizontal one
+            float opacityBorder = clamp(screenPxDistance + 1.65, 0.0, 1.0);
 
-    //         if ( subpixel_amount > 0.0 ) {
-    //             // Subpixel SDF samples
-    //             vec2  subpixel = vec2( subpixel_offset, 0.0 );
-            
-    //             // For displays with vertical subpixel placement:
-    //             // vec2 subpixel = vec2( 0.0, subpixel_offset );
-            
-    //             float sdf_sp_n  = texture2D( font_tex, tc0 - subpixel ).r;
-    //             float sdf_sp_p  = texture2D( font_tex, tc0 + subpixel ).r;
+            vec3 finalColor = mix(vfgColor, vec3(1,1,1), opacityInner);
 
-    //             float horz_scale  = 0.5; // Should be 0.33333, a subpixel size, but that is too colorful
-    //             float vert_scale  = 0.6;
+            if (opacityBorder < 0.01) {
+                discard;
+            }
 
-    //             vec3 triplet_alpha = sdf_triplet_alpha( vec3( sdf_sp_n, sdf, sdf_sp_p ), horz_scale, vert_scale, vgrad );
-            
-    //             // For BGR subpixels:
-    //             // triplet_alpha = triplet.bgr
-
-    //             gl_FragColor = vec4( triplet_alpha, 1.0 );
-
-    //         } else {
-    //             float horz_scale  = 1.1;
-    //             float vert_scale  = 0.6;
-                
-    //             float alpha = sdf_alpha( sdf, 1.1, 0.6, vgrad );
-    //             gl_FragColor = vec4( font_color.rgb, font_color.a * alpha );
-    //         }
-    //     }
-    // `;
+            gl_FragColor = vec4(finalColor, opacityBorder);
+        }`;
 
     function initShaderProgram(gl, vs, fs) {
         var vertexShader = gl.createShader(gl.VERTEX_SHADER);
         gl.shaderSource(vertexShader, vs);
         gl.compileShader(vertexShader);
         if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
-            alert('An error occurred compiling the shaders: ' + gl.getShaderInfoLog(vertexShader));
+            console.log('An error occurred compiling the vertexShader: ' + gl.getShaderInfoLog(vertexShader));
         }
         var fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
         gl.shaderSource(fragmentShader, fs);
         gl.compileShader(fragmentShader);
         if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
-            alert('An error occurred compiling the shaders: ' + gl.getShaderInfoLog(fragmentShader));
+            console.log('An error occurred compiling the fragmentShader: ' + gl.getShaderInfoLog(fragmentShader));
         }
         var shaderProgram = gl.createProgram();
         gl.attachShader(shaderProgram, vertexShader);
         gl.attachShader(shaderProgram, fragmentShader);
         gl.linkProgram(shaderProgram);
         if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-            alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
+            console.log('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
         }
         return shaderProgram;
     }
 
     var shaderProgram = initShaderProgram(gl, vsSource, fsSource);
+    var sdfShaderProgram = initShaderProgram(gl, sdfvsSource, sdffsSource);
 
     var programInfo = {
         program: shaderProgram,
@@ -515,6 +476,25 @@ var webaddress = 'ws://localhost:7799/';
             resolution: gl.getUniformLocation(shaderProgram, 'uResolution')
         }
     }
+
+    var sdfProgramInfo = {
+        program: sdfShaderProgram,
+        attribLocations: {
+            vertexPosition: gl.getAttribLocation(sdfShaderProgram, 'aVertexPosition'),
+            texturePosition: gl.getAttribLocation(sdfShaderProgram, 'aTexcoord'),
+            bgColorData: gl.getAttribLocation(sdfShaderProgram, 'bgColor'),
+            fgColorData: gl.getAttribLocation(sdfShaderProgram, 'fgColor')
+        },
+        uniformLocations: {
+            resolution: gl.getUniformLocation(sdfShaderProgram, 'uResolution'),
+            screenPxRange: gl.getUniformLocation(sdfShaderProgram, 'uScreenPxRange')
+        }
+    }
+
+    var programs = {
+        default: programInfo,
+        sdf: sdfProgramInfo
+    };
 
     var m4 = {
         identity: function() {
@@ -691,15 +671,12 @@ var webaddress = 'ws://localhost:7799/';
     var texturePositionBuffer = gl.createBuffer();
     var colourBuffer = gl.createBuffer();
 
-    function drawScene(gl, programInfo, calls) {
+    function drawScene(gl, programs, calls) {
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
         gl.clearColor(0.36, 0.64, 1.0, 1.0);
         gl.clearDepth(1.0);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        gl.useProgram(programInfo.program);
-        gl.uniform3f(programInfo.uniformLocations.resolution, gl.canvas.width, gl.canvas.height, 1);
 
         gl.enable(gl.DEPTH_TEST);
         gl.depthFunc(gl.LEQUAL);
@@ -707,8 +684,25 @@ var webaddress = 'ws://localhost:7799/';
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-        for (var k in calls) {
+        var orderedKeys = Object.keys(calls).sort();
+        
+        for (var ki = 0; ki < orderedKeys.length; ki++) {
+            var k = orderedKeys[ki];
+            
             var drawCalls = calls[k];
+
+            var programInfo = programs.default;
+
+            if (k == 'wt') {
+                programInfo = programs.sdf;
+            }
+
+            gl.useProgram(programInfo.program);
+            gl.uniform3f(programInfo.uniformLocations.resolution, gl.canvas.width, gl.canvas.height, 1);
+
+            if (k == 'wt') {
+                gl.uniform1f(programInfo.uniformLocations.screenPxRange, 1);
+            }
 
             gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
             
@@ -921,41 +915,49 @@ var webaddress = 'ws://localhost:7799/';
                 new Float32Array(textureData),
                 gl.STATIC_DRAW);
             gl.vertexAttribPointer(programInfo.attribLocations.texturePosition, 2, gl.FLOAT, false, 0, 0);
-        
-            gl.enableVertexAttribArray(programInfo.attribLocations.recolorData);
-            gl.bindBuffer(gl.ARRAY_BUFFER, colourBuffer);
-            var colors = [];
-            drawCalls.forEach(dc => {
-                var r = 0;
-                var g = 0;
-                var b = 0;
-                switch (dc[10]) {
-                    case 'red':
-                        r = 1;
-                        break;
-                    case 'green':
-                        g = 1;
-                        break;
-                    case 'playerturn':
-                        r = 0;
-                        g = 1;
-                        b = 0;
-                        break;
-                    case 'grey':
-                        r = 0.5;
-                        g = 0.5;
-                        b = 0.5;
-                        break;
-                }
-                for (var i = 0; i < 6 * (threed ? 6 : 1); i++) {
-                    colors.push(r, g, b);
-                }
+
+            var attributes = ['recolorData'];
+
+            if (k == 'wt') {
+                attributes = ['bgColorData', 'fgColorData'];
+            }
+
+            attributes.forEach(a => {
+                gl.enableVertexAttribArray(programInfo.attribLocations[a]);
+                gl.bindBuffer(gl.ARRAY_BUFFER, colourBuffer);
+                var colors = [];
+                drawCalls.forEach(dc => {
+                    var r = 0;
+                    var g = 0;
+                    var b = 0;
+                    switch (dc[10]) {
+                        case 'red':
+                            r = 1;
+                            break;
+                        case 'green':
+                            g = 1;
+                            break;
+                        case 'playerturn':
+                            r = 0;
+                            g = 1;
+                            b = 0;
+                            break;
+                        case 'grey':
+                            r = 0.5;
+                            g = 0.5;
+                            b = 0.5;
+                            break;
+                    }
+                    for (var i = 0; i < 6 * (threed ? 6 : 1); i++) {
+                        colors.push(r, g, b);
+                    }
+                });
+                gl.bufferData(
+                    gl.ARRAY_BUFFER,
+                    new Float32Array(colors),
+                    gl.STATIC_DRAW);
+                gl.vertexAttribPointer(programInfo.attribLocations[a], 3, gl.FLOAT, false, 0, 0);
             });
-            gl.bufferData(
-                gl.ARRAY_BUFFER,
-                new Float32Array(colors),
-                gl.STATIC_DRAW);
-            gl.vertexAttribPointer(programInfo.attribLocations.recolorData, 3, gl.FLOAT, false, 0, 0);
 
             var count = textureData.length / 2;
             gl.drawArrays(gl.TRIANGLES, 0, count);
@@ -1078,6 +1080,10 @@ var webaddress = 'ws://localhost:7799/';
             calls[sheet].push([sx, sy, sw, sh, dx, dy, dw, dh, z, angle, color, options]);
         }
 
+        function drawSDFCharacter(fx, fy, fw, fh, dx, dy, dw, dh, angle, z, color, options) {
+            draw('wt', fx, fy, fw, fh, dx, dy, dw, dh, angle, z, color, options);
+        }
+
         function drawSprite(sheet, fx, fy, dx, dy, w, h, angle, z, color, options) {
             var dim = graphics[sheet].dim
             var sx = fx*dim;
@@ -1086,6 +1092,55 @@ var webaddress = 'ws://localhost:7799/';
         }
 
         function drawText(x, y, w, maxWidth, text, z, drawCursor, highlight) {
+            //drawRasterText(x, y, w, maxWidth, text, z, drawCursor, highlight);
+            drawSDF(x, y, w, maxWidth, text, z, drawCursor, highlight);
+        }
+
+        function drawSDF(x, y, w, maxWidth, text, z, drawCursor, highlight) {
+            if (sdfFont) {
+                //var sizeScaler = sdfFont.atlas.size / w;
+                var atlasHeight = sdfFont.atlas.height;
+                var atlasWidth = sdfFont.atlas.width;
+
+                var position = 0;
+                var line = 0;
+
+                for (var i = 0; i < text.length; i++) {
+                    var charCode = text.charCodeAt(i);
+
+                    var renderable = sdfFont.glyphs.find(g => g.unicode == charCode);
+
+                    if (renderable) {
+                        if (renderable.atlasBounds) {
+                            var fx = renderable.atlasBounds.left;
+                            var fy = atlasHeight - renderable.atlasBounds.top;
+                            var fw = renderable.atlasBounds.right - renderable.atlasBounds.left;
+                            var fh = renderable.atlasBounds.top - renderable.atlasBounds.bottom;
+
+                            var renderedWidth = renderable.planeBounds.right - renderable.planeBounds.left;
+                            var renderedHeight = renderable.planeBounds.top - renderable.planeBounds.bottom;
+
+                            var dx = x + position + (renderedWidth*w*0.5);
+                            var dy = y + line*w + (renderedHeight*w*0.5);
+                            var dw = renderedWidth * w;
+                            var dh = renderedHeight * w;
+
+                            drawSDFCharacter(fx, fy, fw, fh, dx, dy, dw, dh, 0, z || 0.35, highlight || 'black');
+                        }
+
+                        position += renderable.advance * w;
+
+                        if (position > maxWidth) {
+                                position = 0;
+                                line++;
+                            }
+                    }
+                }
+
+            }
+        }
+
+        function drawRasterText(x, y, w, maxWidth, text, z, drawCursor, highlight) {
             var position = 0;
             var line = 0;
             for(var i = 0; i < text.length; i++) {
@@ -1884,7 +1939,7 @@ var webaddress = 'ws://localhost:7799/';
             showMenuUI = !showMenuUI;
         }
 
-        drawScene(gl, programInfo, calls);
+        drawScene(gl, programs, calls);
 
         if(framesToAnimate > 0 || animateUntil > now) {
             if (framesToAnimate > 0) {
@@ -1918,12 +1973,21 @@ var webaddress = 'ws://localhost:7799/';
         { n: 'factory.png', d: 200 },
         { n: 'highlight.png', d: 88, noblur: true },
         { n: 'font2.png', d: 10, noblur: true },
-        { n: 'ui.png', d: 32, noblur: true }
+        { n: 'ui.png', d: 32, noblur: true },
+        { n: 'wt.png', d: 252, noblur: false }
     ].reduce((a, c) => {
         var name = c.n.split('.')[0];
         a[name] = loadTexture(c.n, c.d, c.noblur);
         return a;
     }, {});
+
+    var sdfFont = null;
+
+    fetch(resourceaddress + '/wt.json').then(res => {
+        res.json().then(f => {
+            sdfFont = f;
+        });
+    });
 
     var showChatbox = false;
     var showNamebox = false;
