@@ -426,9 +426,9 @@ var webaddress = 'ws://localhost:7799/';
             float sd = median(msd.r, msd.g, msd.b);
             float screenPxDistance = 4.5*(sd - 0.5);
 
-            float opacityInner = clamp(screenPxDistance + 0.5, 0.0, 1.0);
+            float opacityInner = clamp(screenPxDistance - 0.5, 0.0, 1.0);
 
-            float opacityBorder = clamp(screenPxDistance + 1.65, 0.0, 1.0);
+            float opacityBorder = clamp(screenPxDistance + 2.0, 0.0, 1.0);
 
             vec3 finalColor = mix(vfgColor, vec3(1,1,1), opacityInner);
 
@@ -708,7 +708,7 @@ var webaddress = 'ws://localhost:7799/';
             
             gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
             var positions = [];
-            function calculatePosition(x, y, w, h, z, angle, threed, options, debug) {
+            function calculatePosition(x, y, w, h, z, angle, threed, options) {
                 if (threed) {
                     y = canvas.height - y;
                     z = z || 0.5;
@@ -825,7 +825,7 @@ var webaddress = 'ws://localhost:7799/';
             }
             var threed = k == 'tiles';
             drawCalls.forEach((dc, i) => {
-                calculatePosition(dc[4], dc[5], dc[6], dc[7], dc[8], dc[9], threed, dc[11], i == 0);
+                calculatePosition(dc[4], dc[5], dc[6], dc[7], dc[8], dc[9], threed, dc[11]);
             });
             gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
             gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
@@ -1092,13 +1092,11 @@ var webaddress = 'ws://localhost:7799/';
         }
 
         function drawText(x, y, w, maxWidth, text, z, drawCursor, highlight) {
-            //drawRasterText(x, y, w, maxWidth, text, z, drawCursor, highlight);
             drawSDF(x, y, w, maxWidth, text, z, drawCursor, highlight);
         }
 
         function drawSDF(x, y, w, maxWidth, text, z, drawCursor, highlight) {
             if (sdfFont) {
-                //var sizeScaler = sdfFont.atlas.size / w;
                 var atlasHeight = sdfFont.atlas.height;
                 var atlasWidth = sdfFont.atlas.width;
 
@@ -1106,9 +1104,16 @@ var webaddress = 'ws://localhost:7799/';
                 var line = 0;
 
                 for (var i = 0; i < text.length; i++) {
-                    var charCode = text.charCodeAt(i);
+                    var codePoint = text.codePointAt(i);
+                    var nextCodePoint = text.codePointAt(i+1);
 
-                    var renderable = sdfFont.glyphs.find(g => g.unicode == charCode);
+                    if (text[i] == '\n') {
+                        position = 0;
+                        line++;
+                        continue;
+                    }
+
+                    var renderable = sdfCharacters[codePoint];
 
                     if (renderable) {
                         if (renderable.atlasBounds) {
@@ -1119,24 +1124,31 @@ var webaddress = 'ws://localhost:7799/';
 
                             var renderedWidth = renderable.planeBounds.right - renderable.planeBounds.left;
                             var renderedHeight = renderable.planeBounds.top - renderable.planeBounds.bottom;
+                            var midPointX = (renderable.planeBounds.right + renderable.planeBounds.left) / 2;
+                            var midPointY = (renderable.planeBounds.top + renderable.planeBounds.bottom) / 2;
 
-                            var dx = x + position + (renderedWidth*w*0.5);
-                            var dy = y + line*w + (renderedHeight*w*0.5);
+                            var dx = x + position + ((midPointX-0.5)*w*0.5);
+                            var dy = y + line*w + ((midPointY-0.5)*w*0.5);
                             var dw = renderedWidth * w;
                             var dh = renderedHeight * w;
 
                             drawSDFCharacter(fx, fy, fw, fh, dx, dy, dw, dh, 0, z || 0.35, highlight || 'black');
                         }
 
-                        position += renderable.advance * w;
+                        var kerningAdjust = 0;
+                        var kerningRecord = renderable.kerning.find(k => k.unicode2 == nextCodePoint);
+                        if (kerningRecord) {
+                            kerningAdjust += kerningRecord.advance;
+                        }
+
+                        position += (renderable.advance + kerningAdjust) * w;
 
                         if (position > maxWidth) {
-                                position = 0;
-                                line++;
-                            }
+                            position = 0;
+                            line++;
+                        }
                     }
                 }
-
             }
         }
 
@@ -1982,10 +1994,15 @@ var webaddress = 'ws://localhost:7799/';
     }, {});
 
     var sdfFont = null;
+    var sdfCharacters = {};
 
     fetch(resourceaddress + '/wt.json').then(res => {
         res.json().then(f => {
             sdfFont = f;
+            sdfFont.glyphs.forEach(g => {
+                g.kerning = sdfFont.kerning.filter(k => k.unicode1 == g.unicode);
+                sdfCharacters[g.unicode] = g;
+            });
         });
     });
 
@@ -2103,12 +2120,14 @@ var webaddress = 'ws://localhost:7799/';
         if (showChatbox) {
             if (e.key == 'Backspace') {
                 chat = chat.substring(0, chat.length - 1);
-            }
-            //num0a-z = 97-122
-            //A-Z = 65-90
-            //0-9 = 48-57
-            if((e.keyCode >= 96 && e.keyCode <= 122) || (e.keyCode >= 65 && e.keyCode <= 90) || (e.keyCode >= 48 && e.keyCode <= 57) || e.key == '/' || e.key == ' ') {
-                chat += e.key;
+            } else {
+                var char = sdfCharacters[e.key.codePointAt(0)];
+                if(char && char.atlasBounds && e.key.length == 1) {
+                    console.log(char, e);
+                    chat += e.key;
+                } else {
+                    chat += ' ';
+                }
             }
         }
         if (showNamebox) {
