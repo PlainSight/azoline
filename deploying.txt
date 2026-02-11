@@ -1,0 +1,7 @@
+ssh to server
+
+lsof -ti :7799 to get pid of the server
+
+kill -9 the pid
+
+file /etc/systemd/system/azul.service autorestart the app

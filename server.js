@@ -73,6 +73,7 @@ function parseMessage(m, client) {
             if (!client.player) {
                 client.send({ type: 'nameplease' });
             } else {
+                client.player.isConnected = true;
                 if (client.player.game) {
                     client.player.state();
                 } else {
